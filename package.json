@@ -1,0 +1,43 @@
+{
+  "name": "cs2",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "nodemon --env-file .env.development -L --trace-warnings src/server.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.21.1",
+    "http-status": "^1.7.4",
+    "multer": "^1.4.5-lts.1",
+    "node-tesseract-ocr": "^2.2.1",
+    "open-google-translator": "^1.0.5",
+    "pdfkit": "^0.15.0",
+    "pino": "^9.4.0",
+    "pino-http": "^10.3.0",
+    "pino-pretty": "^11.2.2"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "nodemon": "^3.1.7"
+  },
+  "imports": {
+    "#routes": "./src/routes/index.js",
+    "#routes/*": "./src/routes/*.js",
+    "#utils": "./src/utils/index.js",
+    "#utils/*": "./src/utils/*.js",
+    "#middlewares": "./src/middlewares/index.js",
+    "#middlewares/*": "./src/middlewares/*.js",
+    "#controllers": "./src/controllers/index.js",
+    "#controllers/*": "./src/controllers/*.js",
+    "#services": "./src/services/index.js",
+    "#services/*": "./src/services/*.js",
+    "#configs": "./src/configs/index.js",
+    "#configs/*": "./src/configs/*.js"
+  }
+}
