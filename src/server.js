@@ -13,6 +13,9 @@ app.use(express.urlencoded({
 	extended: true
 }));
 
+/* -------------------- Static assets ------------------- */
+app.use(express.static("public"))
+
 /* --------------------- Enable CORS -------------------- */
 app.use(cors({
 	origin: true,
