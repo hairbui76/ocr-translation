@@ -1,6 +1,11 @@
 const PDFDocument = require("pdfkit");
 const fs = require("fs");
 
+/**
+ * Create PDF from text
+ * @param {string} text Text to be converted
+ * @returns {Promise<Buffer>} PDF Buffer
+ */
 async function createPDF(text) {
 	return new Promise((resolve, reject) => {
 		if (!text) {
@@ -23,8 +28,11 @@ async function createPDF(text) {
 			resolve(Buffer.concat(chunks));
 		});
 
-		doc.pipe(fs.createWriteStream(`output/output_${Date.now()}.pdf`));
-		doc.font("font/Roboto-Regular.ttf").fontSize(14).text(text, 100, 100);
+		doc.pipe(fs.createWriteStream(`sample/output/output_${Date.now()}.pdf`));
+		doc
+			.font("sample/font/Roboto-Regular.ttf")
+			.fontSize(14)
+			.text(text, 100, 100);
 		doc.end();
 	});
 }
