@@ -19,3 +19,9 @@ Follow instructions in [nodejs documentation](https://nodejs.org/en)
 Run server in development mode
 
 `npm run dev`
+
+## Docker
+
+Run server containerized in Docker
+
+`docker compose up --build`
