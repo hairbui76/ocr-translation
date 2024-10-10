@@ -3,6 +3,7 @@ const ApiResponse = require("./ApiResponse");
 const ocr = require("./ocr");
 const pdf = require("./pdf");
 const translator = require("./translator");
+const ImageToPdfQueue = require("./ImageToPdfQueue");
 
 module.exports = {
 	ApiError,
@@ -10,4 +11,5 @@ module.exports = {
 	ocr,
 	pdf,
 	translator,
+	ImageToPdfQueue,
 };
