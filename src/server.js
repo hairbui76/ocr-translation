@@ -1,10 +1,12 @@
 const express = require("express");
+const path = require('path');
 const cors = require("cors");
-const app = express();
 
 const routes = require("#routes");
 const {configs, logger} = require("#configs");
 const { errorHandler,notFoundHandler } = require("#middlewares");
+
+const app = express();
 
 /* ------------------ application/json ------------------ */
 app.use(express.json());
@@ -14,7 +16,7 @@ app.use(express.urlencoded({
 }));
 
 /* -------------------- Static assets ------------------- */
-app.use(express.static("public"))
+app.use(express.static(path.join(__dirname, "..", 'public')));
 
 /* --------------------- Enable CORS -------------------- */
 app.use(cors({
@@ -26,7 +28,7 @@ app.use(cors({
 app.use(logger)
 
 /* ----------------- All routes traffic ----------------- */
-app.use(routes);
+app.use("/api", routes);
 
 /* ------------------ NotFound handler ------------------ */
 app.use(notFoundHandler);

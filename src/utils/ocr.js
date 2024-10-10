@@ -1,7 +1,12 @@
 const tesseract = require("node-tesseract-ocr")
 
-async function image2text(path){
-  return await tesseract.recognize(path, {
+/**
+ * OCR image to text
+ * @param {string|Buffer} img Path or Buffer
+ * @returns {Promise<string>} Result text
+ */
+async function image2text(img){
+  return await tesseract.recognize(img, {
     lang: "eng"
   })
 }

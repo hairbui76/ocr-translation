@@ -1,4 +1,5 @@
-const status = require("http-status")
+const status = require("http-status");
+const ApiError = require("#utils/ApiError");
 
 /**
  * Custom error handler express
@@ -8,13 +9,14 @@ const status = require("http-status")
  * @param {import("express").NextFunction} next Next function
  */
 function errorHandler(err, req, res, next) {
+	console.trace(err);
 	if (err instanceof ApiError) {
 		return res.status(err.status).json({
-			message: err.message
+			message: err.message,
 		});
 	}
 	return res.status(status.INTERNAL_SERVER_ERROR).json({
-		message: "Internal Server Error"
+		message: "Internal Server Error",
 	});
 }
 

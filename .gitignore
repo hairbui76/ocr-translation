@@ -2,3 +2,4 @@ output
 data
 font
 node_modules
+.env
