@@ -1,8 +1,10 @@
-const express = require('express');
+const express = require("#configs/express");
 const router = express.Router();
 
 const pdfRouter = require("./pdf");
+const healthRouter = require("./health");
 
-router.use("/pdf", pdfRouter)
+router.use("/pdf", pdfRouter);
+router.use("/health", healthRouter);
 
 module.exports = router;

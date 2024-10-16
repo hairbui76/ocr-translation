@@ -1,4 +1,4 @@
-const express = require("express");
+const express = require("#configs/express");
 const path = require("path");
 const cors = require("cors");
 
@@ -18,7 +18,7 @@ app.use(
 );
 
 /* -------------------- Static assets ------------------- */
-app.use(express.static(path.join(__dirname, "..", "public")));
+app.use(express.static(path.join(__dirname, "public")));
 
 /* --------------------- Enable CORS -------------------- */
 app.use(
@@ -43,7 +43,7 @@ redis
 		app.use(errorHandler);
 
 		app.listen(configs.BASE.PORT, configs.BASE.HOSTNAME, () => {
-			console.log(`Express erver listening at ${configs.BASE.getUrl()}`);
+			console.log(`Express server listening at ${configs.BASE.getUrl()}`);
 		});
 	})
 	.catch((error) => {

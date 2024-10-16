@@ -3,7 +3,12 @@ const configs = {
 		PORT: process.env.PORT || 3000,
 		HOSTNAME: process.env.URL || "127.0.0.1",
 		getUrl() {
-			if (this.HOSTNAME === "127.0.0.1" || this.HOSTNAME === "localhost")
+			if (
+				this.HOSTNAME === "localhost" ||
+				/^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/.test(
+					this.HOSTNAME
+				)
+			)
 				return `http://${this.HOSTNAME}:${this.PORT}`;
 			return `https://${this.HOSTNAME}:${this.PORT}`;
 		},
