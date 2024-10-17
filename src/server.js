@@ -5,6 +5,7 @@ const cors = require("cors");
 const routes = require("#routes");
 const { configs, logger, redis } = require("#configs");
 const { errorHandler, notFoundHandler } = require("#middlewares");
+const createRateLimit = require("#configs/rateLimit");
 
 const app = express();
 
@@ -33,7 +34,10 @@ app.use(logger);
 
 redis
 	.connect()
-	.then(() => {
+	.then((client) => {
+		/* ----------------- Rate limit middleware --------------- */
+		app.use(createRateLimit(client));
+
 		/* ----------------- All routes traffic ----------------- */
 		app.use("/api", routes);
 
