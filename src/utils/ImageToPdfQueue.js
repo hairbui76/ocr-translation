@@ -2,10 +2,18 @@ const Queue = require("bull");
 const ocr = require("./ocr");
 const translator = require("./translator");
 const pdf = require("./pdf");
+const { REDIS } = require("#configs/configs");
 
 class ImageToPdfQueue extends Queue {
-	constructor(name, redisUri) {
-		super(name, redisUri);
+	/**
+	 * Image to PDF Queue constructor
+	 * @param {string} name Queue name
+	 * @param {import("ioredis").Redis} redisClient External redis client
+	 */
+	constructor(name, redisClient) {
+		super(name, REDIS.getUrl());
+		// Store Redis client
+		this.redisClient = redisClient;
 		// Store SSE clients
 		this.sseClients = new Map();
 
@@ -41,17 +49,21 @@ class ImageToPdfQueue extends Queue {
 	async imagePipeline(job) {
 		const { imgBuffer } = job.data;
 
+		console.log("Starting imagePipeline for job:", job.id);
 		try {
 			// OCR Filter
 			const ocrResult = await ocr.image2text(Buffer.from(imgBuffer.data));
+			console.log("OCR done");
 			this.updateJobProgress(job.id, "OCR completed");
 
 			// Translation Filter
 			const translatedText = await translator.translate(ocrResult);
+			console.log("Translation done");
 			this.updateJobProgress(job.id, "Translation completed");
 
 			// PDF Generation Filter
 			const pdfBuffer = await pdf.createPDF(translatedText);
+			console.log("PDF generation done");
 			this.updateJobProgress(job.id, "PDF generation completed");
 
 			return pdfBuffer;

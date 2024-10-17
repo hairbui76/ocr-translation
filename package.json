@@ -5,7 +5,7 @@
 	"scripts": {
 		"start": "node index.js",
 		"test": "echo \"Error: no test specified\" && exit 1",
-		"dev": "nodemon -L -e html,css,js,json --watch src --watch public --env-file .env --trace-warnings src/server.js"
+		"dev": "nodemon -L -e html,css,js,json --watch src --env-file .env --trace-warnings src/server.js"
 	},
 	"author": "",
 	"license": "ISC",

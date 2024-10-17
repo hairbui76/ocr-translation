@@ -9,7 +9,7 @@ router.get("/", async (req, res) => {
 	try {
 		await checkDatabaseConnection();
 		await checkRedisConnection();
-		res.status(status.OK).json({ status: "healthy" });
+		res.ok("Healthy", null);
 	} catch (error) {
 		throw new ApiError(status.INTERNAL_SERVER_ERROR, error.message);
 	}

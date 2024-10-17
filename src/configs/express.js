@@ -1,5 +1,6 @@
 const express = require("express");
 const catchAsync = require("#utils/catchAsync");
+const status = require("http-status");
 
 const originalRouter = express.Router;
 express.Router = function () {
@@ -17,6 +18,16 @@ express.Router = function () {
 	});
 
 	return router;
+};
+
+/**
+ * Response 200
+ * @param {string} message Response message
+ * @param {any} data Response data
+ * @returns {import("express").Response}
+ */
+express.response.ok = function (message, data = null) {
+	return this.status(status.OK).json({ message, data });
 };
 
 module.exports = express;

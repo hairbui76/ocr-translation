@@ -3,9 +3,9 @@ const path = require("path");
 const cors = require("cors");
 
 const routes = require("#routes");
-const { configs, logger, redis } = require("#configs");
+const { configs, logger, redis, rateLimit } = require("#configs");
 const { errorHandler, notFoundHandler } = require("#middlewares");
-const createRateLimit = require("#configs/rateLimit");
+const ImageToPdfQueue = require("#utils/ImageToPdfQueue");
 
 const app = express();
 
@@ -36,14 +36,24 @@ redis
 	.connect()
 	.then((client) => {
 		/* ----------------- Rate limit middleware --------------- */
-		app.use(createRateLimit(client));
+		app.use(rateLimit.create(client));
+
+		/* ------------------ Set Redis client ------------------ */
+		app.set("redisClient", client);
+
+		/* --------------- Set image to pdf queue --------------- */
+		app.set(
+			"imageToPdfQueue",
+			new ImageToPdfQueue("image-to-pdf-queue", client)
+		);
 
 		/* ----------------- All routes traffic ----------------- */
 		app.use("/api", routes);
 
 		/* ------------------ NotFound handler ------------------ */
 		app.use(notFoundHandler);
-		/* ------------------ API error handler ----------------- */
+
+		/* --------------- Response error handler --------------- */
 		app.use(errorHandler);
 
 		app.listen(configs.BASE.PORT, configs.BASE.HOSTNAME, () => {

@@ -7,9 +7,9 @@ const status = require("http-status");
  * @param {import("express").NextFunction} next Next function
  */
 function notFoundHandler(req, res, next) {
-	res.status(status.NOT_FOUND).json({
-		message: "Not Found"
-	})
+	return res.status(status.NOT_FOUND).json({
+		message: "Not Found",
+	});
 }
 
 module.exports = notFoundHandler;

@@ -196,7 +196,7 @@
 					method: 'POST',
 					body: formData
 				});
-				const data = await response.json();
+				const { message, data } = await response.json();
 				startJobStatusUpdates(data.jobId);
 			} catch (error) {
 				resultDiv.textContent = 'Error: ' + error.message;

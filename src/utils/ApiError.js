@@ -19,6 +19,22 @@ class InternalServerError extends ApiError {
 	}
 }
 
+class NotFoundError extends ApiError {
+	constructor(message) {
+		super(status.NOT_FOUND, message);
+	}
+}
+
+class BadRequestError extends ApiError {
+	constructor(message) {
+		super(status.BAD_REQUEST, message);
+	}
+}
+
 module.exports = ApiError;
 
 module.exports.InternalServerError = InternalServerError;
+
+module.exports.NotFoundError = NotFoundError;
+
+module.exports.BadRequestError = BadRequestError;

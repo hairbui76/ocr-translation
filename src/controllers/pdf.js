@@ -1,31 +1,30 @@
 const { ApiError } = require("#utils");
+const { NotFoundError, BadRequestError, InternalServerError } = ApiError;
 const status = require("http-status");
 
-const { REDIS } = require("#configs/configs");
-const ImageToPdfQueue = require("#utils/ImageToPdfQueue");
-const processQueue = new ImageToPdfQueue("image-to-pdf-queue", REDIS.getUrl());
-
 const processUploadImage = async (req, res) => {
-	if (!req.file) throw new ApiError(status.BAD_REQUEST, "No file uploaded.");
+	if (!req.file) throw new BadRequestError("No file uploaded.");
 
 	try {
+		const processQueue = req.app.get("imageToPdfQueue");
 		const job = await processQueue.add({ imgBuffer: req.file.buffer });
 		console.log("Job added to processQueue:", job.id);
-		res.status(status.OK).json({ jobId: job.id });
+		res.ok("Job added to processQueue!", { jobId: job.id });
 	} catch (error) {
 		console.error("Error adding job to queue:", error);
-		res.status(500).json({ error: "Failed to process image" });
+		throw new InternalServerError(error.message);
 	}
 };
 
 const getJobStatus = (req, res) => {
 	const jobId = req.params.jobId;
-	res.writeHead(200, {
+	res.writeHead(status.OK, {
 		"Content-Type": "text/event-stream",
 		"Cache-Control": "no-cache",
 		Connection: "keep-alive",
 	});
 
+	const processQueue = req.app.get("imageToPdfQueue");
 	processQueue.sseClients.set(jobId, res);
 
 	req.on("close", () => {
@@ -35,10 +34,11 @@ const getJobStatus = (req, res) => {
 
 const getJobResult = async (req, res) => {
 	try {
+		const processQueue = req.app.get("imageToPdfQueue");
 		const job = await processQueue.getJob(req.params.jobId);
 		if (!job) {
 			console.log(`Job ${req.params.jobId} not found`);
-			return res.status(404).json({ error: "Job not found" });
+			throw new NotFoundError("Job not found");
 		}
 
 		const state = await job.getState();
@@ -48,7 +48,7 @@ const getJobResult = async (req, res) => {
 			const pdfBuffer = Buffer.from(job.returnvalue.data);
 			if (!pdfBuffer || !(pdfBuffer instanceof Buffer)) {
 				console.error(`Job ${job.id} completed but invalid PDF buffer found`);
-				return res.status(500).json({ error: "Invalid PDF generated" });
+				throw new InternalServerError("Invalid PDF generated");
 			}
 			console.log(
 				`Sending PDF for job ${job.id}, buffer length: ${pdfBuffer.length}`
@@ -59,14 +59,14 @@ const getJobResult = async (req, res) => {
 		} else if (state === "failed") {
 			const reason = job.failedReason;
 			console.error(`Job ${job.id} failed:`, reason);
-			return res.status(500).json({ error: "Job failed", reason });
+			throw new InternalServerError(`Job ${job.id} failed: ${reason}`);
 		} else {
 			console.log(`Job ${job.id} not yet completed, state: ${state}`);
 			return res.status(202).json({ state });
 		}
 	} catch (error) {
 		console.error("Error retrieving job result:", error);
-		res.status(500).json({ error: "Internal server error" });
+		throw new InternalServerError(error.message);
 	}
 };
 

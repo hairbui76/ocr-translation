@@ -6,7 +6,7 @@ const { RedisStore } = require("rate-limit-redis");
  * @param {import("ioredis").Redis} client Redis client
  * @returns {import("express-rate-limit").RateLimitRequestHandler}
  */
-function createRateLimit(client) {
+function create(client) {
 	return rateLimit({
 		windowMs: 15 * 60 * 1000, // 15 minutes
 		limit: 100, // Limit each IP to 100 requests per `window` (here, per 15 minutes).
@@ -20,4 +20,4 @@ function createRateLimit(client) {
 	});
 }
 
-module.exports = createRateLimit;
+module.exports = { create };
