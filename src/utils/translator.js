@@ -1,8 +1,9 @@
 const translator = require("open-google-translator");
+const CircuitBreaker = require("#utils/CircuitBreaker");
+const ApiError = require("./ApiError");
+const { InternalServerError } = ApiError;
 
-translator.supportedLanguages();
-
-function translate(text) {
+function _translate(text) {
 	return new Promise((resolve, reject) => {
 		translator
 			.TranslateLanguageData({
@@ -18,6 +19,17 @@ function translate(text) {
 			});
 	});
 }
+
+const breaker = new CircuitBreaker(_translate);
+
+const translate = async (text) => {
+	try {
+		const res = await breaker.fire(text);
+		return res;
+	} catch (err) {
+		throw new InternalServerError(err.message);
+	}
+};
 
 module.exports = {
 	translate,

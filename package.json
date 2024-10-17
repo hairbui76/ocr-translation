@@ -19,6 +19,7 @@
 		"multer": "^1.4.5-lts.1",
 		"node-tesseract-ocr": "^2.2.1",
 		"open-google-translator": "^1.0.5",
+		"opossum": "^8.1.4",
 		"pdfkit": "^0.15.0",
 		"pino": "^9.4.0",
 		"pino-http": "^10.3.0",

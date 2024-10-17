@@ -1,14 +1,24 @@
+const status = require("http-status");
+
 class ApiError extends Error {
 	/**
 	 * Custom Error for API
-	 * @param {number} status HTTP status code
+	 * @param {number} code HTTP status code
 	 * @param {string} message Custom error message
 	 */
-	constructor(status, message) {
+	constructor(code, message) {
 		super();
-		this.status = status;
+		this.code = code;
 		this.message = message;
 	}
 }
 
+class InternalServerError extends ApiError {
+	constructor(message) {
+		super(status.INTERNAL_SERVER_ERROR, message);
+	}
+}
+
 module.exports = ApiError;
+
+module.exports.InternalServerError = InternalServerError;
