@@ -4,6 +4,7 @@ const pdf = require("./pdf");
 const translator = require("./translator");
 const ImageToPdfQueue = require("./ImageToPdfQueue");
 const catchAsync = require("./catchAsync");
+const test = require("./test");
 
 module.exports = {
 	ApiError,
@@ -12,4 +13,5 @@ module.exports = {
 	translator,
 	ImageToPdfQueue,
 	catchAsync,
+	test,
 };

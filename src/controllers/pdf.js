@@ -2,34 +2,59 @@ const { ApiError } = require("#utils");
 const { NotFoundError, BadRequestError, InternalServerError } = ApiError;
 const status = require("http-status");
 
+/**
+ * Process upload image
+ * @param {import("express").Request} req Request object
+ * @param {import("express").Response} res Response object
+ */
 const processUploadImage = async (req, res) => {
-	if (!req.file) throw new BadRequestError("No file uploaded.");
+	if (!req.file) throw new BadRequestError("No image file uploaded.");
 
 	try {
+		/**
+		 * @type {import("bull").Queue}
+		 */
 		const processQueue = req.app.get("imageToPdfQueue");
 		const job = await processQueue.add({ imgBuffer: req.file.buffer });
 		console.log("Job added to processQueue:", job.id);
-		res.ok("Job added to processQueue!", { jobId: job.id });
+
+		res.writeHead(status.OK, {
+			"Content-Type": "text/event-stream",
+			"Cache-Control": "no-cache",
+			Connection: "keep-alive",
+		});
+
+		// Send initial job ID
+		res.write(`data: ${JSON.stringify({ jobId: job.id })}\n\n`);
+
+		// Set up event listeners for job progress and completion
+		const progressListener = async (progress) => {
+			res.write(
+				`data: ${JSON.stringify({
+					state: "active",
+					progress: progress._progress,
+				})}\n\n`
+			);
+			if (progress._progress === 100) res.end();
+		};
+
+		const failedListener = async () => {
+			res.write(`data: ${JSON.stringify({ state: "failed" })}\n\n`);
+		};
+
+		processQueue.on("progress", progressListener);
+		processQueue.on("failed", failedListener);
+
+		const cleanup = () => {
+			processQueue.removeListener("progress", progressListener);
+			processQueue.removeListener("failed", failedListener);
+		};
+
+		req.on("close", cleanup);
 	} catch (error) {
-		console.error("Error adding job to queue:", error);
+		console.error("Error processing image:", error);
 		throw new InternalServerError(error.message);
 	}
-};
-
-const getJobStatus = (req, res) => {
-	const jobId = req.params.jobId;
-	res.writeHead(status.OK, {
-		"Content-Type": "text/event-stream",
-		"Cache-Control": "no-cache",
-		Connection: "keep-alive",
-	});
-
-	const processQueue = req.app.get("imageToPdfQueue");
-	processQueue.sseClients.set(jobId, res);
-
-	req.on("close", () => {
-		processQueue.sseClients.delete(jobId);
-	});
 };
 
 const getJobResult = async (req, res) => {

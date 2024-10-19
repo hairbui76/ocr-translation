@@ -196,44 +196,49 @@
 					method: 'POST',
 					body: formData
 				});
-				const { message, data } = await response.json();
-				startJobStatusUpdates(data.jobId);
+				// const { message, data } = await response.json();
+				const reader = response.body.getReader();
+				const decoder = new TextDecoder();
+				let jobId;
+
+				while (true) {
+					const { value, done } = await reader.read();
+					if (done) break;
+
+					const events = decoder.decode(value).split('\n\n');
+					for (const event of events) {
+						if (event.startsWith('data: ')) {
+							console.log(event.slice(6))
+							const data = JSON.parse(event.slice(6));
+							console.log('Received update:', data);
+
+							// Handle different types of updates
+							if (data.jobId) {
+								console.log('Job ID:', data.jobId);
+								jobId = data.jobId;
+							} else if (data.state === 'active') {
+								progressBar.style.width = `${data.progress}%`;
+								resultDiv.textContent = `Progress: ${data.progress}%`;
+								if (data.progress === 100) {
+									resultDiv.textContent = `Loading result...`;
+									fetchResult(jobId)
+									break
+								}
+							} else if (data.state === 'failed') {
+								console.error('Job failed, reason:', data.failedReason);
+								// Display error message
+								break;
+							}
+						}
+					}
+				}
 			} catch (error) {
+				console.error(error);
 				resultDiv.textContent = 'Error: ' + error.message;
 				loader.style.display = 'none';
 				uploadButton.disabled = false;
 			}
 		});
-
-		function startJobStatusUpdates(jobId) {
-			const eventSource = new EventSource(`${BASE_URL}/job-status/${jobId}`);
-
-			eventSource.onmessage = (event) => {
-				const data = JSON.parse(event.data);
-				console.log(`Received job status update: ${data.message}`);
-				resultDiv.textContent = data.message;
-
-				// Update progress bar
-				if (data.message === 'OCR completed') {
-					progressBar.style.width = '33%';
-				} else if (data.message === 'Translation completed') {
-					progressBar.style.width = '66%';
-				} else if (data.message === 'PDF generation completed') {
-					progressBar.style.width = '100%';
-					console.log('PDF generation completed, closing EventSource and fetching result');
-					eventSource.close();
-					fetchResult(jobId);
-				}
-			};
-
-			eventSource.onerror = (error) => {
-				console.error('EventSource failed:', error);
-				eventSource.close();
-				resultDiv.textContent = 'Error: Lost connection to server';
-				loader.style.display = 'none';
-				uploadButton.disabled = false;
-			};
-		}
 
 		async function fetchResult(jobId) {
 			console.log(`Fetching result for job ${jobId}`);
