@@ -97,6 +97,5 @@ const getJobResult = async (req, res) => {
 
 module.exports = {
 	processUploadImage,
-	getJobStatus,
 	getJobResult,
 };
