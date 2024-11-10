@@ -26,5 +26,5 @@ const image2text = async (img) => {
 };
 
 module.exports = {
-	image2text,
+	image2text: _image2text,
 };

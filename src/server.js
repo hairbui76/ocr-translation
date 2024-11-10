@@ -19,7 +19,11 @@ app.use(
 );
 
 /* -------------------- Static assets ------------------- */
-app.use(express.static(path.join(__dirname, "public")));
+// app.use(express.static(path.join(__dirname, "public")));
+
+/* ------------------- EJS View engine ------------------ */
+app.set("views", path.join(__dirname, "views"));
+app.set("view engine", "ejs");
 
 /* --------------------- Enable CORS -------------------- */
 app.use(
@@ -48,7 +52,7 @@ redis
 		);
 
 		/* ----------------- All routes traffic ----------------- */
-		app.use("/api", routes);
+		app.use(routes);
 
 		/* ------------------ NotFound handler ------------------ */
 		app.use(notFoundHandler);

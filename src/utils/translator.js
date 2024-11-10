@@ -32,5 +32,5 @@ const translate = async (text) => {
 };
 
 module.exports = {
-	translate,
+	translate: _translate,
 };

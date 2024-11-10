@@ -9,9 +9,6 @@ const pdfCtrl = require("#controllers/pdf");
 
 router.post("/upload", upload.single("image"), pdfCtrl.processUploadImage);
 
-// Express route for SSE
-router.get("/job-status/:jobId", pdfCtrl.getJobStatus);
-
 // Express route for retrieving result
 router.get("/result/:jobId", pdfCtrl.getJobResult);
 
