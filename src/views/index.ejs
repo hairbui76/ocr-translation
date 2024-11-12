@@ -57,6 +57,7 @@
 
 		.file-input-label {
 			display: inline-block;
+			width: 100%;
 			padding: 0.75rem 1.5rem;
 			background-color: var(--primary-color);
 			color: #fff;
@@ -144,6 +145,24 @@
 			background-color: var(--primary-color);
 			transition: width 0.3s ease;
 		}
+
+		.upload-btn-container {
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+		}
+
+		.checkbox-container {
+			display: flex;
+			align-items: center;
+			padding: 0 0.5rem;
+		}
+
+		#cached {
+			width: 1.5rem;
+			height: 1.5rem;
+			cursor: pointer;
+		}
 	</style>
 </head>
 
@@ -151,8 +170,14 @@
 	<div class="container">
 		<h1>Image to PDF Converter</h1>
 		<form id="uploadForm">
-			<input type="file" id="imageInput" name="imageInput" accept="image/*" required>
-			<label for="imageInput" class="file-input-label">Choose Image</label>
+			<div class="upload-btn-container">
+				<input type="file" id="imageInput" name="imageInput" accept="image/*" required>
+				<label for="imageInput" class="file-input-label">Choose Image</label>
+				<div class="checkbox-container">
+					<input type="checkbox" id="cached" name="cached" value="true" checked>
+					<label for="cached">Cache</label>
+				</div>
+			</div>
 			<button type="submit" id="uploadButton" disabled>Convert to PDF</button>
 		</form>
 		<div class="progress-bar">
@@ -167,6 +192,7 @@
 		const BASE_URL = "<%= baseUrl %>";
 		const uploadForm = document.getElementById('uploadForm');
 		const imageInput = document.getElementById('imageInput');
+		const cached = document.getElementById('cached');
 		const uploadButton = document.getElementById('uploadButton');
 		const resultDiv = document.getElementById('result');
 		const pdfViewer = document.getElementById('pdfViewer');
@@ -184,6 +210,7 @@
 			e.preventDefault();
 			const formData = new FormData();
 			formData.append('image', imageInput.files[0]);
+			formData.append('cached', cached.checked);
 
 			resultDiv.textContent = 'Uploading...';
 			loader.style.display = 'block';

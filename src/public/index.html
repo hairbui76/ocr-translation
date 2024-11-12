@@ -144,6 +144,11 @@
 			background-color: var(--primary-color);
 			transition: width 0.3s ease;
 		}
+
+		.upload-btn-container {
+			display: flex;
+			justify-content: space-between;
+		}
 	</style>
 </head>
 
@@ -151,8 +156,11 @@
 	<div class="container">
 		<h1>Image to PDF Converter</h1>
 		<form id="uploadForm">
-			<input type="file" id="imageInput" name="imageInput" accept="image/*" required>
-			<label for="imageInput" class="file-input-label">Choose Image</label>
+			<div class="upload-btn-container">
+				<input type="file" id="imageInput" name="imageInput" accept="image/*" required>
+				<label for="imageInput" class="file-input-label">Choose Image</label>
+				<checkbox id="cache" name="cached">Cache</checkbox>
+			</div>
 			<button type="submit" id="uploadButton" disabled>Convert to PDF</button>
 		</form>
 		<div class="progress-bar">

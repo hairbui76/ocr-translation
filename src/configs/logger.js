@@ -14,7 +14,7 @@ const option = {
 if (process.env.NODE_ENV !== "production") {
 	option.transport.options.ignore = "pid,hostname,reqId,res,req,responseTime";
 	option.transport.options.messageFormat =
-		"{msg} [{req.method} {req.url}:> {responseTime}ms]";
+		"{msg} [{req.method} {res.statusCode} {req.url}:> {responseTime}ms]";
 }
 
 const pinocfg = {
@@ -41,6 +41,6 @@ const pinocfg = {
 	},
 };
 
-const logger = pinoHttp(pinocfg)
+const logger = pinoHttp(pinocfg);
 
 module.exports = logger;

@@ -15,7 +15,10 @@ const processUploadImage = async (req, res) => {
 		 * @type {import("bull").Queue}
 		 */
 		const processQueue = req.app.get("imageToPdfQueue");
-		const job = await processQueue.add({ imgBuffer: req.file.buffer });
+		const job = await processQueue.add({
+			imgBuffer: req.file.buffer,
+			cached: req.body.cached === "true",
+		});
 		console.log("Job added to processQueue:", job.id);
 
 		res.writeHead(status.OK, {
@@ -35,7 +38,10 @@ const processUploadImage = async (req, res) => {
 					progress: progress._progress,
 				})}\n\n`
 			);
-			if (progress._progress === 100) res.end();
+			if (progress._progress === 100) {
+				cleanup();
+				res.end();
+			}
 		};
 
 		const failedListener = async () => {
@@ -50,7 +56,18 @@ const processUploadImage = async (req, res) => {
 			processQueue.removeListener("failed", failedListener);
 		};
 
-		req.on("close", cleanup);
+		req.on("close", async () => {
+			cleanup();
+			// Optionally remove the job if client disconnects early
+			try {
+				const existingJob = await processQueue.getJob(job.id);
+				if (existingJob) {
+					await existingJob.remove();
+				}
+			} catch (error) {
+				console.error(`Error cleaning up job ${job.id}:`, error);
+			}
+		});
 	} catch (error) {
 		console.error("Error processing image:", error);
 		throw new InternalServerError(error.message);

@@ -40,7 +40,7 @@ redis
 	.connect()
 	.then((client) => {
 		/* ----------------- Rate limit middleware --------------- */
-		app.use(rateLimit.create(client));
+		// app.use(rateLimit.create(client));
 
 		/* ------------------ Set Redis client ------------------ */
 		app.set("redisClient", client);
