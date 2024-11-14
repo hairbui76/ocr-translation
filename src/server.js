@@ -5,7 +5,13 @@ const cors = require("cors");
 const routes = require("#routes");
 const { configs, logger, redis, rateLimit } = require("#configs");
 const { errorHandler, notFoundHandler } = require("#middlewares");
-const ImageToPdfQueue = require("#utils/ImageToPdfQueue");
+const {
+  ImageToPdfQueue,
+  OCRQueue,
+  TranslationQueue,
+} = require("#utils/ImageToPdfQueue");
+const { initOCRWorkers } = require("./workers/ocrWorkers");
+const { initTranslationWorkers } = require("./workers/translationWorkers");
 
 const app = express();
 
@@ -13,9 +19,9 @@ const app = express();
 app.use(express.json());
 /* ---------- application/x-www-form-urlencoded --------- */
 app.use(
-	express.urlencoded({
-		extended: true,
-	})
+  express.urlencoded({
+    extended: true,
+  }),
 );
 
 /* -------------------- Static assets ------------------- */
@@ -27,44 +33,54 @@ app.set("view engine", "ejs");
 
 /* --------------------- Enable CORS -------------------- */
 app.use(
-	cors({
-		origin: true,
-		credentials: true,
-	})
+  cors({
+    origin: true,
+    credentials: true,
+  }),
 );
 
 /* -------------------- Custom logger ------------------- */
 app.use(logger);
 
 redis
-	.connect()
-	.then((client) => {
-		/* ----------------- Rate limit middleware --------------- */
-		// app.use(rateLimit.create(client));
+  .connect()
+  .then((client) => {
+    /* ----------------- Rate limit middleware --------------- */
+    // app.use(rateLimit.create(client));
 
-		/* ------------------ Set Redis client ------------------ */
-		app.set("redisClient", client);
+    /* ------------------ Set Redis client ------------------ */
+    app.set("redisClient", client);
 
-		/* --------------- Set image to pdf queue --------------- */
-		app.set(
-			"imageToPdfQueue",
-			new ImageToPdfQueue("image-to-pdf-queue", client)
-		);
+    /* --------------- Set image to pdf queue --------------- */
+    app.set(
+      "imageToPdfQueue",
+      new ImageToPdfQueue("image-to-pdf-queue", client),
+    );
+    const ocrQueue = new OCRQueue("ocr-queue", client);
+    app.set("ocrQueue", ocrQueue);
+    const translationQueue = new TranslationQueue("translation-queue", client);
+    app.set("translationQueue", translationQueue);
 
-		/* ----------------- All routes traffic ----------------- */
-		app.use(routes);
+    /* ------------------ Initiates workers ----------------- */
+    initOCRWorkers(translationQueue);
+    initTranslationWorkers();
 
-		/* ------------------ NotFound handler ------------------ */
-		app.use(notFoundHandler);
+    /* ----------------- All routes traffic ----------------- */
+    app.use(routes);
 
-		/* --------------- Response error handler --------------- */
-		app.use(errorHandler);
+    /* ------------------ NotFound handler ------------------ */
+    app.use(notFoundHandler);
 
-		app.listen(configs.BASE.PORT, configs.BASE.HOSTNAME, () => {
-			console.log(`Express server listening at ${configs.BASE.getUrl()}`);
-		});
-	})
-	.catch((error) => {
-		console.error("Server startup failed:", error);
-		process.exit(1);
-	});
+    /* --------------- Response error handler --------------- */
+    app.use(errorHandler);
+
+    app.listen(configs.BASE.PORT, configs.BASE.HOSTNAME, () => {
+      console.log(`Express server listening at ${configs.BASE.getUrl()}`);
+    });
+  })
+  .catch((error) => {
+    console.error("Server startup failed:", error);
+    process.exit(1);
+  });
+
+module.exports = app;
