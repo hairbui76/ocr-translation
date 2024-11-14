@@ -5,28 +5,24 @@ const pdf = require("./pdf");
 const { REDIS } = require("#configs/configs");
 const { simpleImageHash, simpleTranslatedTextHash } = require("./hash");
 const { sleep } = require("./test");
+const { Worker } = require("bullmq");
 
 class OCRQueue extends Queue {
   /**
    * OCR Queue constructor
    * @param {string} name Queue name
    * @param {import("ioredis").Redis} redisClient External redis client
+   * @param {TranslationQueue} translationQueue Translation queue
    */
-  constructor(name, redisClient) {
+  constructor(name, redisClient, translationQueue) {
     super(name, REDIS.getUrl());
     // Store Redis client
     this.redisClient = redisClient;
 
-    // Process jobs in the queue
-    // this.process(async (job) => {
-    // 	try {
-    // 		const ocrResult = await this.ocrPipeline(job);
-    // 		return ocrResult;
-    // 	} catch (error) {
-    // 		console.error(`Job ${job.id} failed:`, error);
-    // 		throw error;
-    // 	}
-    // });
+    // initialize workers
+    for (let i = 0; i < 3; i++) {
+      this.createOCRWorker(translationQueue);
+    }
 
     // Error handling for the queue
     this.on("error", (error) => {
@@ -43,6 +39,46 @@ class OCRQueue extends Queue {
     });
   }
 
+  createOCRWorker(translationQueue) {
+    const ocrWorker = new Worker(
+      "ocr-queue",
+      async (job) => {
+        console.log("Processing OCR job", job.id);
+        // Process OCR job
+        try {
+          const ocrResult = this.ocrPipeline(job);
+          // Add translation job
+          await translationQueue.add(
+            {
+              ocrResult,
+            },
+            {
+              jobId: job.id,
+            },
+          );
+        } catch (error) {
+          console.error(`Job ${job.id} failed:`, error);
+          throw error;
+        }
+      },
+      {
+        connection: {
+          host: REDIS.HOST,
+          port: REDIS.PORT,
+        },
+      },
+    );
+
+    // Error handling for the queue
+    ocrWorker.on("error", (error) => {
+      console.error("Queue error:", error);
+    });
+
+    ocrWorker.on("failed", (job, error) => {
+      console.error("Job failed:", job.id, error);
+    });
+  }
+
   /**
    * Get OCR Result from image buffer
    * @param {Buffer} imgBuffer Image buffer
@@ -54,23 +90,23 @@ class OCRQueue extends Queue {
     const cacheKey = `ocr:${hash}`;
 
     try {
-      await job.progress(10);
+      // await job.progress(10);
 
       const cachedOCRResult = await this.redisClient.get(cacheKey);
 
       if (cachedOCRResult) {
         console.log("Found OCR result in cache for job:", job.id);
-        await job.progress(40);
+        // await job.progress(40);
         return cachedOCRResult;
       }
 
-      await job.progress(20);
+      // await job.progress(20);
       const ocrResult = await ocr.image2text(imgBuffer);
 
       await this.redisClient.set(cacheKey, ocrResult);
 
       console.log("OCR result stored in cache for job:", job.id);
-      await job.progress(40);
+      // await job.progress(40);
 
       return ocrResult;
     } catch (error) {
@@ -89,7 +125,7 @@ class OCRQueue extends Queue {
 
     console.log("Starting ocrPipeline for job:", job.id);
     try {
-      await job.progress(0);
+      // await job.progress(0);
       // OCR Filter
       const ocrResult = await this.getOCRResult(
         Buffer.from(imgBuffer.data),
@@ -97,7 +133,7 @@ class OCRQueue extends Queue {
       );
       console.log("OCR done");
 
-      await job.progress(100);
+      // await job.progress(100);
 
       return ocrResult;
     } catch (error) {
@@ -118,16 +154,9 @@ class TranslationQueue extends Queue {
     // Store Redis client
     this.redisClient = redisClient;
 
-    // Process jobs in the queue
-    // this.process(async (job) => {
-    //   try {
-    //     const translatedText = await this.translationPipeline(job);
-    //     return translatedText;
-    //   } catch (error) {
-    //     console.error(`Job ${job.id} failed:`, error);
-    //     throw error;
-    //   }
-    // });
+    for (let i = 0; i < 2; i++) {
+      this.createTranslationWorker();
+    }
 
     // Error handling for the queue
     this.on("error", (error) => {
@@ -135,6 +164,37 @@ class TranslationQueue extends Queue {
     });
 
     this.on("failed", (job, error) => {
+      console.error("Job failed:", job.id, error);
+    });
+  }
+
+  createTranslationWorker() {
+    const translationWorker = new Worker(
+      "translation-queue",
+      async (job) => {
+        console.log("Translation job", job.id);
+        // Process OCR job
+        try {
+          return await this.translationPipeline(job);
+        } catch (error) {
+          console.error(`Job ${job.id} failed:`, error);
+          throw error;
+        }
+      },
+      {
+        connection: {
+          host: REDIS.HOST,
+          port: REDIS.PORT,
+        },
+      },
+    );
+
+    // Error handling for the queue
+    translationWorker.on("error", (error) => {
+      console.error("Queue error:", error);
+    });
+
+    translationWorker.on("failed", (job, error) => {
       console.error("Job failed:", job.id, error);
     });
   }
@@ -150,23 +210,23 @@ class TranslationQueue extends Queue {
     const cacheKey = `translate:${hash}`;
 
     try {
-      await job.progress(50);
+      // await job.progress(50);
 
       const cachedTranslatedText = await this.redisClient.get(cacheKey);
 
       if (cachedTranslatedText) {
         console.log("Found translated text in cache for job:", job.id);
-        await job.progress(70);
+        // await job.progress(70);
         return cachedTranslatedText;
       }
 
-      await job.progress(60);
+      // await job.progress(60);
       const translatedText = await translator.translate(ocrResult);
 
       await this.redisClient.set(cacheKey, translatedText);
 
       console.log("Translated text stored in cache for job:", job.id);
-      await job.progress(70);
+      // await job.progress(70);
 
       return translatedText;
     } catch (error) {
@@ -185,16 +245,16 @@ class TranslationQueue extends Queue {
 
     console.log("Starting translationPipeline for job:", job.id);
     try {
-      await job.progress(0);
+      // await job.progress(0);
       // Translation Filter
       const translatedText = await this.getTranslatedText(ocrResult, job);
 
       console.log("Translation done");
 
-      await job.progress(80);
+      // await job.progress(80);
       const pdfBuffer = await pdf.createPDF(translatedText);
 
-      await job.progress(100);
+      // await job.progress(100);
       console.log("PDF generated for job:", job.id);
 
       return pdfBuffer;

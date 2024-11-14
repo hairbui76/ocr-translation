@@ -56,14 +56,14 @@ redis
       "imageToPdfQueue",
       new ImageToPdfQueue("image-to-pdf-queue", client),
     );
-    const ocrQueue = new OCRQueue("ocr-queue", client);
-    app.set("ocrQueue", ocrQueue);
     const translationQueue = new TranslationQueue("translation-queue", client);
     app.set("translationQueue", translationQueue);
+    const ocrQueue = new OCRQueue("ocr-queue", client, translationQueue);
+    app.set("ocrQueue", ocrQueue);
 
     /* ------------------ Initiates workers ----------------- */
-    initOCRWorkers(translationQueue);
-    initTranslationWorkers();
+    // initOCRWorkers(translationQueue);
+    // initTranslationWorkers();
 
     /* ----------------- All routes traffic ----------------- */
     app.use(routes);
