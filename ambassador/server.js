@@ -66,7 +66,7 @@ class AmbassadorService {
 							config.headers["Accept"] = "text/event-stream";
 						}
 
-						const response = await axios({
+						return await axios({
 							...config,
 							// Don't parse the response when streaming
 							transformResponse:
@@ -74,7 +74,6 @@ class AmbassadorService {
 									? []
 									: axios.defaults.transformResponse,
 						});
-						return response;
 					} catch (error) {
 						if (error.response) {
 							return error.response;
@@ -233,7 +232,6 @@ class AmbassadorService {
 				const config = {
 					method: req.method,
 					url: `${targetUrl}${req.path}`,
-					responseType: this.getResponseType(req.path, req.headers),
 					headers: {
 						...formData.getHeaders(),
 						"X-Request-ID": req.headers["x-request-id"],

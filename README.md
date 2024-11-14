@@ -8,7 +8,7 @@ Follow instructions in [tesseract documentation](https://tesseract-ocr.github.io
 
 ### Install nodejs
 
-Follow instructions in [nodejs documentation](https://nodejs.org/en)
+Follow instructions in [Node.js documentation](https://nodejs.org/en)
 
 ### Install npm dependencies
 
@@ -48,7 +48,7 @@ The function `imagePipeline` has three steps:
 	 * @param {import("bull").Job} job Job to process
 	 * @returns {Promise<Buffer>} PDF buffer
 	 */
-	async imagePipeline(job) {
+	async function imagePipeline(job) {
 		const { imgBuffer } = job.data;
 
 		console.log("Starting imagePipeline for job:", job.id);
@@ -121,7 +121,6 @@ class ImageToPdfQueue extends Queue {
 			console.error("Job failed:", job.id, error);
 		});
 	}
-...
 }
 ```
 
@@ -178,7 +177,7 @@ const image2text = async (img) => {
 I'm using caching with redis in function `getOCRResult` and `getTranslatedText`. If the ocr or translated text has already been cached, return them immediately instead of performing the same operation again.
 
 ```javascript
-async getOCRResult(imgBuffer, job) {
+async function getOCRResult(imgBuffer, job) {
 		const hash = simpleImageHash(imgBuffer);
 		const cacheKey = `ocr:${hash}`;
 
