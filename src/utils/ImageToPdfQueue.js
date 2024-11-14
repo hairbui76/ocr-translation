@@ -18,6 +18,7 @@ class OCRQueue extends Queue {
     super(name, REDIS.getUrl());
     // Store Redis client
     this.redisClient = redisClient;
+    this.progressListeners = new Map();
 
     // initialize workers
     for (let i = 0; i < 3; i++) {
@@ -32,11 +33,23 @@ class OCRQueue extends Queue {
     this.on("failed", (job, error) => {
       console.error("Job failed:", job.id, error);
       // Cleanup failed jobs
-      this.activeJobs.delete(job.id);
       this.removeAllListeners(`progress:${job.id}`);
       this.removeAllListeners(`failed:${job.id}`);
       this.removeAllListeners(`completed:${job.id}`);
     });
+  }
+
+  /**
+   * Adds a listener to the queue when progress is updated.
+   * @param {string} jobId
+   * @param {(progress) => {}} listener
+   * */
+  addProgressListener(jobId, listener) {
+    this.progressListeners.set(jobId, listener);
+  }
+
+  removeProgressListener(jobId) {
+    this.progressListeners.delete(jobId);
   }
 
   createOCRWorker(translationQueue) {
@@ -46,7 +59,8 @@ class OCRQueue extends Queue {
         console.log("Processing OCR job", job.id);
         // Process OCR job
         try {
-          const ocrResult = this.ocrPipeline(job);
+          const ocrResult = await this.ocrPipeline(job);
+          console.log("ocr result:", ocrResult);
           // Add translation job
           await translationQueue.add(
             {
@@ -69,6 +83,13 @@ class OCRQueue extends Queue {
       },
     );
 
+    ocrWorker.on("progress", (job, progress) => {
+      const listener = this.progressListeners.get(job.id);
+      if (listener) {
+        listener(progress);
+      }
+    });
+
     // Error handling for the queue
     ocrWorker.on("error", (error) => {
       console.error("Queue error:", error);
@@ -90,23 +111,23 @@ class OCRQueue extends Queue {
     const cacheKey = `ocr:${hash}`;
 
     try {
-      // await job.progress(10);
+      await job.updateProgress(10);
 
       const cachedOCRResult = await this.redisClient.get(cacheKey);
 
       if (cachedOCRResult) {
         console.log("Found OCR result in cache for job:", job.id);
-        // await job.progress(40);
+        await job.updateProgress(40);
         return cachedOCRResult;
       }
 
-      // await job.progress(20);
+      await job.updateProgress(20);
       const ocrResult = await ocr.image2text(imgBuffer);
 
       await this.redisClient.set(cacheKey, ocrResult);
 
       console.log("OCR result stored in cache for job:", job.id);
-      // await job.progress(40);
+      await job.updateProgress(40);
 
       return ocrResult;
     } catch (error) {
@@ -125,7 +146,7 @@ class OCRQueue extends Queue {
 
     console.log("Starting ocrPipeline for job:", job.id);
     try {
-      // await job.progress(0);
+      await job.updateProgress(0);
       // OCR Filter
       const ocrResult = await this.getOCRResult(
         Buffer.from(imgBuffer.data),
@@ -133,7 +154,7 @@ class OCRQueue extends Queue {
       );
       console.log("OCR done");
 
-      // await job.progress(100);
+      await job.updateProgress(50);
 
       return ocrResult;
     } catch (error) {
@@ -153,6 +174,7 @@ class TranslationQueue extends Queue {
     super(name, REDIS.getUrl());
     // Store Redis client
     this.redisClient = redisClient;
+    this.progressListeners = new Map();
 
     for (let i = 0; i < 2; i++) {
       this.createTranslationWorker();
@@ -166,6 +188,19 @@ class TranslationQueue extends Queue {
     this.on("failed", (job, error) => {
       console.error("Job failed:", job.id, error);
     });
+  }
+
+  /**
+   * Adds a listener to the queue when progress is updated.
+   * @param {string} jobId
+   * @param {(progress) => {}} listener
+   * */
+  addProgressListener(jobId, listener) {
+    this.progressListeners.set(jobId, listener);
+  }
+
+  removeProgressListener(jobId) {
+    this.progressListeners.delete(jobId);
   }
 
   createTranslationWorker() {
@@ -189,6 +224,13 @@ class TranslationQueue extends Queue {
       },
     );
 
+    translationWorker.on("progress", (job, progress) => {
+      const listener = this.progressListeners.get(job.id);
+      if (listener) {
+        listener(progress);
+      }
+    });
+
     // Error handling for the queue
     translationWorker.on("error", (error) => {
       console.error("Queue error:", error);
@@ -210,23 +252,23 @@ class TranslationQueue extends Queue {
     const cacheKey = `translate:${hash}`;
 
     try {
-      // await job.progress(50);
+      await job.updateProgress(60);
 
       const cachedTranslatedText = await this.redisClient.get(cacheKey);
 
       if (cachedTranslatedText) {
         console.log("Found translated text in cache for job:", job.id);
-        // await job.progress(70);
+        await job.updateProgress(70);
         return cachedTranslatedText;
       }
 
-      // await job.progress(60);
+      // await job.updateProgress(60);
       const translatedText = await translator.translate(ocrResult);
 
       await this.redisClient.set(cacheKey, translatedText);
 
       console.log("Translated text stored in cache for job:", job.id);
-      // await job.progress(70);
+      await job.updateProgress(70);
 
       return translatedText;
     } catch (error) {
@@ -238,23 +280,24 @@ class TranslationQueue extends Queue {
   /**
    * Pipe and Filter pattern implementation for processing image
    * @param {import("bull").Job} job Job to process
-   * @returns
+   * @returns {Promise<Buffer>} PDF buffer
    */
   async translationPipeline(job) {
     const { ocrResult } = job.data;
 
     console.log("Starting translationPipeline for job:", job.id);
     try {
-      // await job.progress(0);
+      await job.updateProgress(50);
       // Translation Filter
       const translatedText = await this.getTranslatedText(ocrResult, job);
+      console.log("Translation:", translatedText);
 
       console.log("Translation done");
 
-      // await job.progress(80);
+      await job.updateProgress(80);
       const pdfBuffer = await pdf.createPDF(translatedText);
 
-      // await job.progress(100);
+      await job.updateProgress(100);
       console.log("PDF generated for job:", job.id);
 
       return pdfBuffer;

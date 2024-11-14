@@ -12,15 +12,19 @@ const processUploadImage = async (req, res) => {
 
   try {
     /**
-     * @type {import("bull").Queue}
+     * @type {OCRQueue}
      */
-    // const processQueue = req.app.get("imageToPdfQueue");
-    const processQueue = req.app.get("ocrQueue");
-    const job = await processQueue.add({
+    // const ocrQueue = req.app.get("imageToPdfQueue");
+    const ocrQueue = req.app.get("ocrQueue");
+    /**
+     * @type {TranslationQueue}
+     * */
+    const translationQueue = req.app.get("translationQueue");
+    const job = await ocrQueue.add({
       imgBuffer: req.file.buffer,
       cached: req.body.cached === "true",
     });
-    console.log("Job added to processQueue:", job.id);
+    console.log("Job added to ocrQueue:", job.id);
 
     res.writeHead(status.OK, {
       "Content-Type": "text/event-stream",
@@ -36,10 +40,10 @@ const processUploadImage = async (req, res) => {
       res.write(
         `data: ${JSON.stringify({
           state: "active",
-          progress: progress._progress,
+          progress: progress,
         })}\n\n`,
       );
-      if (progress._progress === 100) {
+      if (progress === 100) {
         cleanup();
         res.end();
       }
@@ -49,19 +53,22 @@ const processUploadImage = async (req, res) => {
       res.write(`data: ${JSON.stringify({ state: "failed" })}\n\n`);
     };
 
-    processQueue.on("progress", progressListener);
-    processQueue.on("failed", failedListener);
+    // add progress listener to the 2 queues
+    ocrQueue.addProgressListener(job.id, progressListener);
+    translationQueue.addProgressListener(job.id, progressListener);
+    // ocrQueue.on("progress", progressListener);
+    // ocrQueue.on("failed", failedListener);
 
     const cleanup = () => {
-      processQueue.removeListener("progress", progressListener);
-      processQueue.removeListener("failed", failedListener);
+      ocrQueue.removeProgressListener(job.id);
+      translationQueue.removeProgressListener(job.id);
     };
 
     req.on("close", async () => {
       cleanup();
       // Optionally remove the job if client disconnects early
       try {
-        const existingJob = await processQueue.getJob(job.id);
+        const existingJob = await ocrQueue.getJob(job.id);
         if (existingJob) {
           await existingJob.remove();
         }
@@ -77,9 +84,9 @@ const processUploadImage = async (req, res) => {
 
 const getJobResult = async (req, res) => {
   try {
-    // const processQueue = req.app.get("imageToPdfQueue");
-    const processQueue = req.app.get("translationQueue");
-    const job = await processQueue.getJob(req.params.jobId);
+    // const ocrQueue = req.app.get("imageToPdfQueue");
+    const ocrQueue = req.app.get("translationQueue");
+    const job = await ocrQueue.getJob(req.params.jobId);
     if (!job) {
       console.log(`Job ${req.params.jobId} not found`);
       throw new NotFoundError("Job not found");
