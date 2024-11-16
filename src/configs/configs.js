@@ -1,10 +1,13 @@
 const configs = {
+	NODE_ENV: process.env.NODE_ENV || "development",
 	BASE: {
 		PORT: process.env.PORT || 3000,
 		HOSTNAME: process.env.HOST || "127.0.0.1",
 		AMBASSADOR_PORT: process.env.AMBASSADOR_PORT || 3001,
 		AMBASSADOR_URL: process.env.AMBASSADOR_URL,
 		getUrl() {
+			if (this.NODE_ENV !== "production")
+				return `http://localhost:${this.PORT}`;
 			if (
 				this.HOSTNAME === "localhost" ||
 				/^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/.test(

@@ -5,7 +5,8 @@ const cors = require("cors");
 const routes = require("#routes");
 const { configs, logger, redis, rateLimit } = require("#configs");
 const { errorHandler, notFoundHandler } = require("#middlewares");
-const ImageToPdfQueue = require("#utils/ImageToPdfQueue");
+const { ImageToPdfQueue } = require("#utils/ImageToPdfQueue");
+const { log } = require("#configs/logger");
 
 const app = express();
 
@@ -61,10 +62,11 @@ redis
 		app.use(errorHandler);
 
 		app.listen(configs.BASE.PORT, configs.BASE.HOSTNAME, () => {
-			console.log(`Express server listening at ${configs.BASE.getUrl()}`);
+			log.info(`Express server listening at ${configs.BASE.getUrl()}`);
 		});
 	})
 	.catch((error) => {
-		console.error("Server startup failed:", error);
+		log.error("Server startup failed:", error);
+		log.error(error);
 		process.exit(1);
 	});

@@ -1,3 +1,4 @@
+const { config } = require("node:process");
 const pino = require("pino");
 const pinoHttp = require("pino-http");
 
@@ -44,3 +45,5 @@ const pinocfg = {
 const logger = pinoHttp(pinocfg);
 
 module.exports = logger;
+
+module.exports.log = pino(option);
