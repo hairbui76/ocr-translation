@@ -1,12 +1,18 @@
 const Redis = require("ioredis");
 const configs = require("./configs");
 
+/**
+ * Connect to Redis
+ * @returns {Promise<import("ioredis").Redis>} Redis client
+ */
 function connect() {
 	return new Promise((resolve, reject) => {
 		/**
 		 * @type {import("ioredis").Redis}
 		 */
-		const redisClient = new Redis(configs.REDIS.getUrl());
+		const redisClient = new Redis(configs.REDIS.getUrl(), {
+			maxRetriesPerRequest: null,
+		});
 
 		redisClient.on("connect", () => {
 			console.log("Successfully connected to Redis!");
