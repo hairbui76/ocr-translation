@@ -7,7 +7,7 @@ const upload = multer({ storage });
 
 const pdfCtrl = require("#controllers/pdf");
 
-router.post("/upload", upload.single("image"), pdfCtrl.processUploadImage);
+router.post("/upload", upload.array("images"), pdfCtrl.processUploadImage);
 
 // Express route for retrieving result
 router.get("/result/:jobId", pdfCtrl.getJobResult);

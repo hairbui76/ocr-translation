@@ -7,7 +7,7 @@ const v1 = require("./v1");
 
 router.get("/", (req, res) => {
 	return res.render("index", {
-		baseUrl: `${configs.BASE.getTargetServiceUrl()}/api/v1/pdf`,
+		baseUrl: `http://127.0.0.1:3000/api/v1/pdf`,
 	});
 });
 router.get("/api", (req, res, next) => {

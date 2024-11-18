@@ -60,11 +60,12 @@ class OCRQueue extends Queue {
 				// Process OCR job
 				try {
 					const ocrResult = await this.ocrPipeline(job);
-					// console.log("ocr result:", ocrResult);
+					
 					// Add translation job
 					await translationQueue.add(
 						{
 							ocrResult,
+							fileName: job.data.fileName, 
 						},
 						{
 							jobId: job.id,
@@ -139,7 +140,7 @@ class OCRQueue extends Queue {
 	 * @returns {Promise<string>} OCR result
 	 */
 	async ocrPipeline(job) {
-		const { imgBuffer } = job.data;
+		const { imgBuffer, fileName } = job.data;
 
 		console.log("Starting ocrPipeline for job:", job.id);
 		try {
@@ -149,7 +150,7 @@ class OCRQueue extends Queue {
 				Buffer.from(imgBuffer.data),
 				job
 			);
-			console.log("OCR done");
+			console.log(`OCR done for job ${job.id} (${fileName})`);
 
 			await job.updateProgress(50);
 
@@ -184,6 +185,7 @@ class TranslationQueue extends Queue {
 
 		this.on("failed", (job, error) => {
 			console.error("Job failed:", job.id, error);
+			this.progressListeners.delete(job.id);
 		});
 	}
 
@@ -285,7 +287,7 @@ class TranslationQueue extends Queue {
 			// Translation Filter
 			const translatedText = await this.getTranslatedText(ocrResult, job);
 
-			console.log("Translation done");
+			console.log("Translation done for job:", job.id);
 
 			await job.updateProgress(80);
 			const pdfBuffer = await pdf.createPDF(translatedText);

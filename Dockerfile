@@ -20,5 +20,5 @@ COPY . .
 # Expose the port the app runs on
 EXPOSE 3000
 
-# Command to run the application
-CMD ["node", "src/server.js"]
+# Command to run the application using nodemon
+CMD ["npm", "run", "dev"]

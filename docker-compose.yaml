@@ -16,6 +16,7 @@ services:
       - /usr/src/app/node_modules
     networks:
       - app-network
+    command: npm run dev 
 
   redis:
     image: redis:alpine

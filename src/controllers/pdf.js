@@ -8,23 +8,18 @@ const status = require("http-status");
  * @param {import("express").Response} res Response object
  */
 const processUploadImage = async (req, res) => {
-  if (!req.file) throw new BadRequestError("No image file uploaded.");
+  if (!req.files || req.files.length === 0) {
+    throw new BadRequestError("No image files uploaded.");
+  }
 
   try {
+    // const ocrQueue = req.app.get("imageToPdfQueue");
     /**
      * @type {OCRQueue}
-     */
-    // const ocrQueue = req.app.get("imageToPdfQueue");
-    const ocrQueue = req.app.get("ocrQueue");
-    /**
      * @type {TranslationQueue}
      * */
+    const ocrQueue = req.app.get("ocrQueue");
     const translationQueue = req.app.get("translationQueue");
-    const job = await ocrQueue.add({
-      imgBuffer: req.file.buffer,
-      cached: req.body.cached === "true",
-    });
-    console.log("Job added to ocrQueue:", job.id);
 
     res.writeHead(status.OK, {
       "Content-Type": "text/event-stream",
@@ -32,22 +27,68 @@ const processUploadImage = async (req, res) => {
       Connection: "keep-alive",
     });
 
-    // Send initial job ID
-    res.write(`data: ${JSON.stringify({ jobId: job.id })}\n\n`);
+    /*----------- Old Code -----------------*/
+    // Add job to OCR queue
+    // const job = await ocrQueue.add({
+    //   imgBuffer: req.file.buffer,
+    //   cached: req.body.cached === "true",
+    // });
+    // console.log("Job added to ocrQueue:", job.id);
 
-    // Set up event listeners for job progress and completion
-    const progressListener = async (progress) => {
-      res.write(
-        `data: ${JSON.stringify({
-          state: "active",
-          progress: progress,
-        })}\n\n`,
-      );
-      if (progress === 100) {
-        cleanup();
-        res.end();
-      }
-    };
+
+    // Send initial job ID
+    // res.write(`data: ${JSON.stringify({ jobId: job.id })}\n\n`);
+
+    // // Set up event listeners for job progress and completion
+    // const progressListener = async (progress) => {
+    //   res.write(
+    //     `data: ${JSON.stringify({
+    //       state: "active",
+    //       progress: progress,
+    //     })}\n\n`,
+    //   );
+    //   if (progress === 100) {
+    //     cleanup();
+    //     res.end();
+    //   }
+    // };
+
+    /*----------- Old Code -----------------*/
+
+    let count = 0;
+    // Loop over each uploaded file
+    for (const file of req.files) {
+      count += 1;
+      // Add job to OCR queue for each image
+      const job = await ocrQueue.add({
+        imgBuffer: file.buffer,
+        cached: req.body.cached === "true",
+        fileName: file.originalname
+      });
+      console.log("Job added to ocrQueue:", job.id);
+
+      // Send initial job ID
+      res.write(`data: ${JSON.stringify({ jobId: job.id, fileName: file.originalname })}\n\n`);
+
+      // Set up event listeners for job progress and completion
+      const progressListener = async (progress) => {
+        res.write(
+          `data: ${JSON.stringify({
+            state: "active",
+            progress: progress,
+            fileName: file.originalname,
+          })}\n\n`
+        );
+        if (progress === 100) {
+          cleanup();
+          res.end();
+        }
+      };
+
+      // if (count === req.files.length) {
+      //   cleanup();
+      //   res.end();
+      // }
 
     const failedListener = async () => {
       res.write(`data: ${JSON.stringify({ state: "failed" })}\n\n`);
@@ -55,13 +96,12 @@ const processUploadImage = async (req, res) => {
 
     // add progress listener to the 2 queues
     ocrQueue.addProgressListener(job.id, progressListener);
-    translationQueue.addProgressListener(job.id, progressListener);
     // ocrQueue.on("progress", progressListener);
     // ocrQueue.on("failed", failedListener);
 
     const cleanup = () => {
-      ocrQueue.removeProgressListener(job.id);
-      translationQueue.removeProgressListener(job.id);
+      ocrQueue.removeProgressListener(job.id, progressListener);
+      translationQueue.removeProgressListener(job.id, progressListener);
     };
 
     req.on("close", async () => {
@@ -76,6 +116,7 @@ const processUploadImage = async (req, res) => {
         console.error(`Error cleaning up job ${job.id}:`, error);
       }
     });
+  }
   } catch (error) {
     console.error("Error processing image:", error);
     throw new InternalServerError(error.message);
