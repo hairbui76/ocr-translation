@@ -189,8 +189,9 @@
 		<iframe id="pdfViewer"></iframe>
 	</div>
 
-	<!-- <script>
-		const BASE_URL = "<%= baseUrl %>";
+	<script>
+		const PORT = "<%= servicePort %>";
+		const BASE_URL = `${window.location.protocol}//${window.location.hostname}:${PORT}/api/v1/pdf`;
 		const uploadForm = document.getElementById('uploadForm');
 		const imageInput = document.getElementById('imageInput');
 		const cached = document.getElementById('cached');
@@ -200,33 +201,22 @@
 		const loader = document.getElementById('loader');
 		const progressBar = document.getElementById('progressBar');
 
-		// imageInput.addEventListener('change', function (e) {
-		// 	const fileName = e.target.files[0]?.name || 'Choose Image';
-		// 	const label = document.querySelector('.file-input-label');
-		// 	label.textContent = fileName;
-		// 	uploadButton.disabled = !e.target.files[0];
-		// });
-
 		imageInput.addEventListener('change', function (e) {
 			const files = e.target.files;
 			const label = document.querySelector('.file-input-label');
-			const uploadButton = document.getElementById('uploadButton');
-
 			const folderName = files.length ? files[0].webkitRelativePath.split('/')[0] : 'Choose Folder';
 
 			label.textContent = folderName;
-
 			uploadButton.disabled = !files.length;
 
 			const fileCountElement = document.getElementById('fileCount');
 			fileCountElement.textContent = `${files.length} files are uploaded`;
 		});
 
-
 		uploadForm.addEventListener('submit', async (e) => {
 			e.preventDefault();
 			const formData = new FormData();
-			// Append all files to the FormData
+
 			for (const file of imageInput.files) {
 				formData.append('images', file);
 			}
@@ -238,97 +228,47 @@
 			progressBar.style.width = '0%';
 			uploadButton.disabled = true;
 
-			// console.log('da nhan duoc', imageInput.files)
-
 			try {
 				const response = await fetch(`${BASE_URL}/upload`, {
 					method: 'POST',
 					body: formData
 				});
-				const { message, data } = await response.json();
-				// const reader = response.body.getReader();
-				// const decoder = new TextDecoder();
-				// let jobId;
 
-				// while (true) {
-				// 	const { value, done } = await reader.read();
-				// 	if (done) break;
+				if (response.body) {
+					const reader = response.body.getReader();
+					const decoder = new TextDecoder();
+					let jobIds = [];
 
-				// 	const events = decoder.decode(value).split('\n\n');
-				// 	for (const event of events) {
-				// 		if (event.startsWith('data: ')) {
-				// 			console.log(event.slice(6))
-				// 			const data = JSON.parse(event.slice(6));
-				// 			console.log('Received update:', data);
+					while (true) {
+						const { value, done } = await reader.read();
+						if (done) break;
 
-				// 			// Handle different types of updates
-				// 			if (data.jobId) {
-				// 				console.log('Job ID:', data.jobId);
-				// 				jobId = data.jobId;
-				// 			} else if (data.state === 'active') {
-				// 				progressBar.style.width = `${data.progress}%`;
-				// 				resultDiv.textContent = `Progress: ${data.progress}%`;
-				// 				if (data.progress === 100) {
-				// 					resultDiv.textContent = `Loading result...`;
-				// 					fetchResult(jobId)
-				// 					break
-				// 				}
-				// 			} else if (data.state === 'failed') {
-				// 				console.error('Job failed, reason:', data.failedReason);
-				// 				// Display error message
-				// 				break;
-				// 			}
-				// 		}
-				// 	}
-				// }
-   
+						const events = decoder.decode(value).split('\n\n');
+						for (const event of events) {
+							if (event.startsWith('data: ')) {
+								const data = JSON.parse(event.slice(6));
+								console.log('Received update:', data);
 
-				console.log('response', response)
+								if (data.jobId) {
+									jobIds.push(data.jobId);
+									resultDiv.textContent += `Job ID: ${data.jobId} for file ${data.fileName}\n`;
+								} else if (data.state === 'active') {
+									progressBar.style.width = `${data.progress}%`;
+									resultDiv.textContent += `Progress: ${data.progress}% for file ${data.fileName}\n`;
+								} else if (data.state === 'failed') {
+									console.error('Job failed, reason:', data.failedReason);
+									resultDiv.textContent += `Job failed for file ${data.fileName}: ${data.failedReason}\n`;
+								}
+							}
+						}
+					}
 
-
-				// if (response.body) {
-				// 	const reader = response.body.getReader(); // This line will lock the stream
-
-				// 	const decoder = new TextDecoder();
-				// 	let jobId;
-
-				// 	while (true) {
-				// 		const { value, done } = await reader.read();
-				// 		if (done) break;
-
-				// 		const events = decoder.decode(value).split('\n\n');
-				// 		for (const event of events) {
-				// 			if (event.startsWith('data: ')) {
-				// 				const data = JSON.parse(event.slice(6));
-				// 				console.log('Received update:', data);
-
-				// 				// Handle different types of updates
-				// 				if (data.jobId) {
-				// 					console.log('Job ID:', data.jobId);
-				// 					jobId = data.jobId;
-				// 				} else if (data.state === 'active') {
-				// 					progressBar.style.width = `${data.progress}%`;
-				// 					resultDiv.textContent = `Progress: ${data.progress}%`;
-				// 					if (data.progress === 100) {
-				// 						resultDiv.textContent = `Loading result...`;
-				// 						fetchResult(jobId);
-				// 						break;
-				// 					}
-				// 				} else if (data.state === 'failed') {
-				// 					console.error('Job failed, reason:', data.failedReason);
-				// 					break;
-				// 				}
-				// 			}
-				// 		}
-				// 	}
-				// } else {
-				// 	console.error('Response body is not readable');
-				// }
-
-
-
-
-
+					for (const jobId of jobIds) {
+						fetchResult(jobId);
+					}
+				} else {
+					console.error('Response body is not readable');
+				}
 			} catch (error) {
 				console.error(error);
 				resultDiv.textContent = 'Error: ' + error.message;
@@ -349,7 +289,7 @@
 					const pdfUrl = URL.createObjectURL(pdfBlob);
 					pdfViewer.src = pdfUrl;
 					pdfViewer.style.display = 'block';
-					resultDiv.textContent = 'Processing completed! PDF displayed below:';
+					resultDiv.textContent += `Processing completed for job ${jobId}! PDF displayed below.\n`;
 					loader.style.display = 'none';
 					uploadButton.disabled = false;
 				} else {
@@ -357,16 +297,16 @@
 					const data = await response.json();
 					if (data.state === 'completed') {
 						console.log('State is completed, but did not receive PDF. Retrying...');
-						setTimeout(() => fetchResult(jobId), 1000); // Retry after 1 second
+						setTimeout(() => fetchResult(jobId), 1000);
 					} else if (data.error) {
 						console.error(`Error: ${data.error}`);
-						resultDiv.textContent = `Error: ${data.error}`;
+						resultDiv.textContent += `Error for job ${jobId}: ${data.error}\n`;
 						loader.style.display = 'none';
 						uploadButton.disabled = false;
 					} else {
 						console.log(`Job not yet completed, state: ${data.state}`);
-						resultDiv.textContent = `Status: ${data.state}`;
-						setTimeout(() => fetchResult(jobId), 1000); // Check again after 1 second
+						resultDiv.textContent += `Status for job ${jobId}: ${data.state}\n`;
+						setTimeout(() => fetchResult(jobId), 1000);
 					}
 				}
 			} catch (error) {
@@ -384,143 +324,6 @@
 		pdfViewer.onerror = function () {
 			console.error('Error loading PDF');
 			resultDiv.textContent = 'Error: Failed to load PDF';
-		};
-	</script> -->
-
-	<script>
-		const BASE_URL = "<%= baseUrl %>";
-		const uploadForm = document.getElementById('uploadForm');
-		const imageInput = document.getElementById('imageInput');
-		const cached = document.getElementById('cached');
-		const uploadButton = document.getElementById('uploadButton');
-		const resultDiv = document.getElementById('result');
-		const pdfViewer = document.getElementById('pdfViewer');
-		const loader = document.getElementById('loader');
-		const progressBar = document.getElementById('progressBar');
-
-		imageInput.addEventListener('change', function (e) {
-		const files = e.target.files;
-		const label = document.querySelector('.file-input-label');
-		const folderName = files.length ? files[0].webkitRelativePath.split('/')[0] : 'Choose Folder';
-
-		label.textContent = folderName;
-		uploadButton.disabled = !files.length;
-
-		const fileCountElement = document.getElementById('fileCount');
-		fileCountElement.textContent = `${files.length} files are uploaded`;
-		});
-
-		uploadForm.addEventListener('submit', async (e) => {
-		e.preventDefault();
-		const formData = new FormData();
-
-		for (const file of imageInput.files) {
-			formData.append('images', file);
-		}
-		formData.append('cached', cached.checked);
-
-		resultDiv.textContent = 'Uploading...';
-		loader.style.display = 'block';
-		pdfViewer.style.display = 'none';
-		progressBar.style.width = '0%';
-		uploadButton.disabled = true;
-
-		try {
-			const response = await fetch(`${BASE_URL}/upload`, {
-				method: 'POST',
-				body: formData
-			});
-
-			if (response.body) {
-				const reader = response.body.getReader();
-				const decoder = new TextDecoder();
-				let jobIds = [];
-
-				while (true) {
-					const { value, done } = await reader.read();
-					if (done) break;
-
-					const events = decoder.decode(value).split('\n\n');
-					for (const event of events) {
-						if (event.startsWith('data: ')) {
-							const data = JSON.parse(event.slice(6));
-							console.log('Received update:', data);
-
-							if (data.jobId) {
-								jobIds.push(data.jobId);
-								resultDiv.textContent += `Job ID: ${data.jobId} for file ${data.fileName}\n`;
-							} else if (data.state === 'active') {
-								progressBar.style.width = `${data.progress}%`;
-								resultDiv.textContent += `Progress: ${data.progress}% for file ${data.fileName}\n`;
-							} else if (data.state === 'failed') {
-								console.error('Job failed, reason:', data.failedReason);
-								resultDiv.textContent += `Job failed for file ${data.fileName}: ${data.failedReason}\n`;
-							}
-						}
-					}
-				}
-
-				for (const jobId of jobIds) {
-					fetchResult(jobId);
-				}
-			} else {
-				console.error('Response body is not readable');
-			}
-		} catch (error) {
-			console.error(error);
-			resultDiv.textContent = 'Error: ' + error.message;
-			loader.style.display = 'none';
-			uploadButton.disabled = false;
-		}
-		});
-
-		async function fetchResult(jobId) {
-		console.log(`Fetching result for job ${jobId}`);
-		try {
-			const response = await fetch(`${BASE_URL}/result/${jobId}`);
-			console.log(`Received response for job ${jobId}, status: ${response.status}`);
-
-			if (response.headers.get('Content-Type') === 'application/pdf') {
-				console.log('Received PDF, creating blob URL');
-				const pdfBlob = await response.blob();
-				const pdfUrl = URL.createObjectURL(pdfBlob);
-				pdfViewer.src = pdfUrl;
-				pdfViewer.style.display = 'block';
-				resultDiv.textContent += `Processing completed for job ${jobId}! PDF displayed below.\n`;
-				loader.style.display = 'none';
-				uploadButton.disabled = false;
-			} else {
-				console.log('Response is not a PDF, parsing as JSON');
-				const data = await response.json();
-				if (data.state === 'completed') {
-					console.log('State is completed, but did not receive PDF. Retrying...');
-					setTimeout(() => fetchResult(jobId), 1000);
-				} else if (data.error) {
-					console.error(`Error: ${data.error}`);
-					resultDiv.textContent += `Error for job ${jobId}: ${data.error}\n`;
-					loader.style.display = 'none';
-					uploadButton.disabled = false;
-				} else {
-					console.log(`Job not yet completed, state: ${data.state}`);
-					resultDiv.textContent += `Status for job ${jobId}: ${data.state}\n`;
-					setTimeout(() => fetchResult(jobId), 1000);
-				}
-			}
-		} catch (error) {
-			console.error('Error fetching result:', error);
-			resultDiv.textContent = 'Error fetching result: ' + error.message;
-			loader.style.display = 'none';
-			uploadButton.disabled = false;
-		}
-		}
-
-		pdfViewer.onload = function () {
-		console.log('PDF loaded successfully');
-		};
-
-		pdfViewer.onerror = function () {
-		console.error('Error loading PDF');
-		resultDiv.textContent = 'Error: Failed to load PDF';
 		};
 	</script>
 

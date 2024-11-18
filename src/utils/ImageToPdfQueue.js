@@ -15,10 +15,7 @@ class OCRQueue extends Queue {
 	 * @param {TranslationQueue} translationQueue Translation queue
 	 */
 	constructor(name, redisClient, translationQueue) {
-		super(name, {connection: {
-			host: REDIS.HOST,
-			port: REDIS.PORT,
-			}});
+		super(name, { connection: redisClient });
 		// Store Redis client
 		this.redisClient = redisClient;
 		this.progressListeners = new Map();
@@ -69,7 +66,7 @@ class OCRQueue extends Queue {
 						job.data.fileName,
 						{
 							ocrResult,
-							fileName: job.data.fileName, 
+							fileName: job.data.fileName,
 						},
 						{
 							jobId: job.id + "_translation",
@@ -81,9 +78,7 @@ class OCRQueue extends Queue {
 					throw error;
 				}
 			},
-			{
-				connection: this.redisClient,
-			}
+			{ connection: this.redisClient }
 		);
 
 		ocrWorker.on("progress", (job, progress) => {
@@ -171,10 +166,7 @@ class TranslationQueue extends Queue {
 	 * @param {import("ioredis").Redis} redisClient External redis client
 	 */
 	constructor(name, redisClient) {
-		super(name, { connection: {
-			host: REDIS.HOST,
-			port: REDIS.PORT,
-			}});
+		super(name, { connection: redisClient });
 		// Store Redis client
 		this.redisClient = redisClient;
 		this.progressListeners = new Map();
@@ -222,9 +214,7 @@ class TranslationQueue extends Queue {
 					throw error;
 				}
 			},
-			{
-				connection: this.redisClient,
-			}
+			{ connection: this.redisClient }
 		);
 
 		translationWorker.on("progress", (job, progress) => {
