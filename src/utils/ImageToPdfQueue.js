@@ -1,11 +1,11 @@
-const Queue = require("bull");
+// const Queue = require("bull");
 const ocr = require("./ocr");
 const translator = require("./translator");
 const pdf = require("./pdf");
 const { REDIS } = require("#configs/configs");
 const { simpleImageHash, simpleTranslatedTextHash } = require("./hash");
 const { sleep } = require("./test");
-const { Worker } = require("bullmq");
+const { Worker, Queue } = require("bullmq");
 
 class OCRQueue extends Queue {
 	/**
@@ -15,7 +15,10 @@ class OCRQueue extends Queue {
 	 * @param {TranslationQueue} translationQueue Translation queue
 	 */
 	constructor(name, redisClient, translationQueue) {
-		super(name, REDIS.getUrl());
+		super(name, {connection: {
+			host: REDIS.HOST,
+			port: REDIS.PORT,
+			}});
 		// Store Redis client
 		this.redisClient = redisClient;
 		this.progressListeners = new Map();
@@ -56,21 +59,23 @@ class OCRQueue extends Queue {
 		const ocrWorker = new Worker(
 			"ocr-queue",
 			async (job) => {
-				console.log("Processing OCR job", job.id);
+				console.log("OCR job", job.id, "at", new Date());
 				// Process OCR job
 				try {
 					const ocrResult = await this.ocrPipeline(job);
-					
+
 					// Add translation job
 					await translationQueue.add(
+						job.data.fileName,
 						{
 							ocrResult,
 							fileName: job.data.fileName, 
 						},
 						{
-							jobId: job.id,
+							jobId: job.id + "_translation",
 						}
 					);
+					console.log("OCR job", job.id, "done at", new Date());
 				} catch (error) {
 					console.error(`Job ${job.id} failed:`, error);
 					throw error;
@@ -141,8 +146,6 @@ class OCRQueue extends Queue {
 	 */
 	async ocrPipeline(job) {
 		const { imgBuffer, fileName } = job.data;
-
-		console.log("Starting ocrPipeline for job:", job.id);
 		try {
 			await job.updateProgress(0);
 			// OCR Filter
@@ -150,7 +153,6 @@ class OCRQueue extends Queue {
 				Buffer.from(imgBuffer.data),
 				job
 			);
-			console.log(`OCR done for job ${job.id} (${fileName})`);
 
 			await job.updateProgress(50);
 
@@ -169,7 +171,10 @@ class TranslationQueue extends Queue {
 	 * @param {import("ioredis").Redis} redisClient External redis client
 	 */
 	constructor(name, redisClient) {
-		super(name, REDIS.getUrl());
+		super(name, { connection: {
+			host: REDIS.HOST,
+			port: REDIS.PORT,
+			}});
 		// Store Redis client
 		this.redisClient = redisClient;
 		this.progressListeners = new Map();
@@ -206,10 +211,12 @@ class TranslationQueue extends Queue {
 		const translationWorker = new Worker(
 			"translation-queue",
 			async (job) => {
-				console.log("Translation job", job.id);
+				console.log("Translation job", job.id, "at", new Date());
 				// Process OCR job
 				try {
-					return await this.translationPipeline(job);
+					const res = await this.translationPipeline(job);
+					console.log("Translation job", job.id, "done at", new Date());
+					return res;
 				} catch (error) {
 					console.error(`Job ${job.id} failed:`, error);
 					throw error;
@@ -280,14 +287,10 @@ class TranslationQueue extends Queue {
 	 */
 	async translationPipeline(job) {
 		const { ocrResult } = job.data;
-
-		console.log("Starting translationPipeline for job:", job.id);
 		try {
 			await job.updateProgress(50);
 			// Translation Filter
 			const translatedText = await this.getTranslatedText(ocrResult, job);
-
-			console.log("Translation done for job:", job.id);
 
 			await job.updateProgress(80);
 			const pdfBuffer = await pdf.createPDF(translatedText);

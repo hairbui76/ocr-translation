@@ -63,7 +63,7 @@ const processUploadImage = async (req, res) => {
     for (const file of req.files) {
       count += 1;
       // Add job to OCR queue for each image
-      const job = await ocrQueue.add({
+      const job = await ocrQueue.add(file.originalname, {
         imgBuffer: file.buffer,
         cached: req.body.cached === "true",
         fileName: file.originalname
@@ -103,7 +103,7 @@ const processUploadImage = async (req, res) => {
 
     // add progress listener to the 2 queues
     ocrQueue.addProgressListener(job.id, progressListener);
-    translationQueue.addProgressListener(job.id, progressListener);
+    translationQueue.addProgressListener(job.id + "_translation", progressListener);
     // ocrQueue.on("progress", progressListener);
     // ocrQueue.on("failed", failedListener);
 
@@ -135,7 +135,7 @@ const getJobResult = async (req, res) => {
   try {
     // const ocrQueue = req.app.get("imageToPdfQueue");
     const ocrQueue = req.app.get("translationQueue");
-    const job = await ocrQueue.getJob(req.params.jobId);
+    const job = await ocrQueue.getJob(req.params.jobId + "_translation");
     if (!job) {
       console.log(`Job ${req.params.jobId} not found`);
       throw new NotFoundError("Job not found");
