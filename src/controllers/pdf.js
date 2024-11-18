@@ -16,9 +16,11 @@ const processUploadImage = async (req, res) => {
     // const ocrQueue = req.app.get("imageToPdfQueue");
     /**
      * @type {OCRQueue}
-     * @type {TranslationQueue}
      * */
     const ocrQueue = req.app.get("ocrQueue");
+    /**
+     * @type {TranslationQueue}
+     * */
     const translationQueue = req.app.get("translationQueue");
 
     res.writeHead(status.OK, {
@@ -56,6 +58,7 @@ const processUploadImage = async (req, res) => {
     /*----------- Old Code -----------------*/
 
     let count = 0;
+    const progressTracker = {};
     // Loop over each uploaded file
     for (const file of req.files) {
       count += 1;
@@ -65,6 +68,7 @@ const processUploadImage = async (req, res) => {
         cached: req.body.cached === "true",
         fileName: file.originalname
       });
+      progressTracker[job.id] = 0;
       console.log("Job added to ocrQueue:", job.id);
 
       // Send initial job ID
@@ -72,14 +76,17 @@ const processUploadImage = async (req, res) => {
 
       // Set up event listeners for job progress and completion
       const progressListener = async (progress) => {
+        progressTracker[job.id] = progress;
+        const averageProgress = Object.values(progressTracker).reduce((acc, curr) => acc + curr, 0) / count;
+        console.log("Average progress:", averageProgress);
         res.write(
           `data: ${JSON.stringify({
             state: "active",
-            progress: progress,
+            progress: averageProgress,
             fileName: file.originalname,
           })}\n\n`
         );
-        if (progress === 100) {
+        if (averageProgress === 100) {
           cleanup();
           res.end();
         }
@@ -96,6 +103,7 @@ const processUploadImage = async (req, res) => {
 
     // add progress listener to the 2 queues
     ocrQueue.addProgressListener(job.id, progressListener);
+    translationQueue.addProgressListener(job.id, progressListener);
     // ocrQueue.on("progress", progressListener);
     // ocrQueue.on("failed", failedListener);
 
