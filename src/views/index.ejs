@@ -1,11 +1,11 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 
 <head>
-	<meta charset="UTF-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 	<title>Image to PDF Converter</title>
-	<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+	<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet" />
 	<style>
 		:root {
 			--primary-color: #4a90e2;
@@ -16,7 +16,7 @@
 		}
 
 		body {
-			font-family: 'Poppins', sans-serif;
+			font-family: "Poppins", sans-serif;
 			line-height: 1.6;
 			margin: 0;
 			padding: 0;
@@ -46,7 +46,8 @@
 			margin-bottom: 2rem;
 		}
 
-		#imageInput {
+		#imageInput,
+		#folderInput {
 			width: 0.1px;
 			height: 0.1px;
 			opacity: 0;
@@ -158,10 +159,15 @@
 			padding: 0 0.5rem;
 		}
 
-		#cached {
+		#cached,
+		#folder {
 			width: 1.5rem;
 			height: 1.5rem;
 			cursor: pointer;
+		}
+
+		#fileCount {
+			margin: 0;
 		}
 	</style>
 </head>
@@ -171,11 +177,18 @@
 		<h1>Image to PDF Converter</h1>
 		<form id="uploadForm">
 			<div class="upload-btn-container">
-				<input type="file" id="imageInput" name="imageInput" accept="image/*" webkitdirectory multiple required>
-				<label for="imageInput" class="file-input-label">Choose Folder</label>
-				<div class="checkbox-container">
-					<input type="checkbox" id="cached" name="cached" value="true" checked>
-					<label for="cached">Cache</label>
+				<input type="file" class="folder-input" id="folderInput" name="imageInput" accept="image/*" webkitdirectory multiple />
+				<input type="file" class="file-input" id="imageInput" name="imageInput" accept="image/*" multiple />
+				<label for="imageInput" class="file-input-label">Choose File</label>
+				<div class="switch-checkbox">
+					<div class="checkbox-container">
+						<input type="checkbox" id="cached" name="cached" value="true" checked />
+						<label for="cached">Cached</label>
+					</div>
+					<div class="checkbox-container">
+						<input type="checkbox" id="folder" name="folder" value="false" />
+						<label for="folder">Folder</label>
+					</div>
 				</div>
 			</div>
 			<p id="fileCount"></p>
@@ -192,46 +205,96 @@
 	<script>
 		const PORT = "<%= servicePort %>";
 		const BASE_URL = `${window.location.protocol}//${window.location.hostname}:${PORT}/api/v1/pdf`;
-		const uploadForm = document.getElementById('uploadForm');
-		const imageInput = document.getElementById('imageInput');
-		const cached = document.getElementById('cached');
-		const uploadButton = document.getElementById('uploadButton');
-		const resultDiv = document.getElementById('result');
-		const pdfViewer = document.getElementById('pdfViewer');
-		const loader = document.getElementById('loader');
-		const progressBar = document.getElementById('progressBar');
 
-		imageInput.addEventListener('change', function (e) {
+		const $ = document.querySelector.bind(document);
+		const $$ = document.querySelectorAll.bind(document);
+
+		const uploadForm = $("#uploadForm");
+		const imageInput = $("#imageInput");
+		const folderInput = $("#folderInput");
+		const cached = $("#cached");
+		const folderSupported = $("#folder");
+		const uploadButton = $("#uploadButton");
+		const resultDiv = $("#result");
+		const pdfViewer = $("#pdfViewer");
+		const loader = $("#loader");
+		const progressBar = $("#progressBar");
+
+		folderSupported.addEventListener("change", function (e) {
+			const folderInput = $(".folder-input");
+			const fileInput = $(".file-input");
+			const label = $(".file-input-label");
+			const folder = e.target.checked;
+
+			if (folder) {
+				folderInput.style.display = "block";
+				fileInput.style.display = "none";
+				label.textContent = "Choose Folder";
+				label.setAttribute("for", "folderInput");
+			} else {
+				folderInput.style.display = "none";
+				fileInput.style.display = "block";
+				label.textContent = "Choose File";
+				label.setAttribute("for", "imageInput");
+			}
+		});
+
+		folderInput.addEventListener("change", function (e) {
 			const files = e.target.files;
-			const label = document.querySelector('.file-input-label');
-			const folderName = files.length ? files[0].webkitRelativePath.split('/')[0] : 'Choose Folder';
+			const label = $(".file-input-label");
+			const folderName = files.length
+				? files[0].webkitRelativePath.split("/")[0]
+				: "Choose Folder";
 
 			label.textContent = folderName;
 			uploadButton.disabled = !files.length;
 
-			const fileCountElement = document.getElementById('fileCount');
+			const fileCountElement = $("#fileCount");
 			fileCountElement.textContent = `${files.length} files are uploaded`;
 		});
 
-		uploadForm.addEventListener('submit', async (e) => {
+		imageInput.addEventListener("change", function (e) {
+			const files = e.target.files;
+			const label = $(".file-input-label");
+
+			label.textContent = files.length ? files[0].name : "Choose File";
+			uploadButton.disabled = !files.length;
+
+			const fileCountElement = $("#fileCount");
+			fileCountElement.textContent = `${files.length} files are uploaded`;
+		});
+
+		uploadForm.addEventListener("submit", async (e) => {
 			e.preventDefault();
 			const formData = new FormData();
 
-			for (const file of imageInput.files) {
-				formData.append('images', file);
+			if (folderSupported.checked) {
+				for (const file of folderInput.files) {
+					formData.append("images", file);
+				}
+			} else if (imageInput.files.length > 1) {
+				for (const file of imageInput.files) {
+					formData.append("images", file);
+				}
+			} else {
+				formData.append("image", imageInput.files[0]);
 			}
-			formData.append('cached', cached.checked);
+			formData.append("cached", cached.checked);
 
-			resultDiv.textContent = 'Uploading...';
-			loader.style.display = 'block';
-			pdfViewer.style.display = 'none';
-			progressBar.style.width = '0%';
+			resultDiv.textContent = "Uploading...";
+			loader.style.display = "block";
+			pdfViewer.style.display = "none";
+			progressBar.style.width = "0%";
 			uploadButton.disabled = true;
 
 			try {
-				const response = await fetch(`${BASE_URL}/upload`, {
-					method: 'POST',
-					body: formData
+				const uploadUrl = folderSupported.checked || imageInput.files.length > 1
+					? `${BASE_URL}/upload/array`
+					: `${BASE_URL}/upload`;
+
+				const response = await fetch(uploadUrl, {
+					method: "POST",
+					body: formData,
 				});
 
 				if (response.body) {
@@ -243,20 +306,20 @@
 						const { value, done } = await reader.read();
 						if (done) break;
 
-						const events = decoder.decode(value).split('\n\n');
+						const events = decoder.decode(value).split("\n\n");
 						for (const event of events) {
-							if (event.startsWith('data: ')) {
+							if (event.startsWith("data: ")) {
 								const data = JSON.parse(event.slice(6));
-								console.log('Received update:', data);
+								console.log("Received update:", data);
 
 								if (data.jobId) {
 									jobIds.push(data.jobId);
 									resultDiv.textContent += `Job ID: ${data.jobId} for file ${data.fileName}\n`;
-								} else if (data.state === 'active') {
+								} else if (data.state === "active") {
 									progressBar.style.width = `${data.progress}%`;
 									resultDiv.textContent += `Progress: ${data.progress}% for file ${data.fileName}\n`;
-								} else if (data.state === 'failed') {
-									console.error('Job failed, reason:', data.failedReason);
+								} else if (data.state === "failed") {
+									console.error("Job failed, reason:", data.failedReason);
 									resultDiv.textContent += `Job failed for file ${data.fileName}: ${data.failedReason}\n`;
 								}
 							}
@@ -267,12 +330,12 @@
 						fetchResult(jobId);
 					}
 				} else {
-					console.error('Response body is not readable');
+					console.error("Response body is not readable");
 				}
 			} catch (error) {
 				console.error(error);
-				resultDiv.textContent = 'Error: ' + error.message;
-				loader.style.display = 'none';
+				resultDiv.textContent = "Error: " + error.message;
+				loader.style.display = "none";
 				uploadButton.disabled = false;
 			}
 		});
@@ -281,27 +344,31 @@
 			console.log(`Fetching result for job ${jobId}`);
 			try {
 				const response = await fetch(`${BASE_URL}/result/${jobId}`);
-				console.log(`Received response for job ${jobId}, status: ${response.status}`);
+				console.log(
+					`Received response for job ${jobId}, status: ${response.status}`
+				);
 
-				if (response.headers.get('Content-Type') === 'application/pdf') {
-					console.log('Received PDF, creating blob URL');
+				if (response.headers.get("Content-Type") === "application/pdf") {
+					console.log("Received PDF, creating blob URL");
 					const pdfBlob = await response.blob();
 					const pdfUrl = URL.createObjectURL(pdfBlob);
 					pdfViewer.src = pdfUrl;
-					pdfViewer.style.display = 'block';
+					pdfViewer.style.display = "block";
 					resultDiv.textContent += `Processing completed for job ${jobId}! PDF displayed below.\n`;
-					loader.style.display = 'none';
+					loader.style.display = "none";
 					uploadButton.disabled = false;
 				} else {
-					console.log('Response is not a PDF, parsing as JSON');
+					console.log("Response is not a PDF, parsing as JSON");
 					const data = await response.json();
-					if (data.state === 'completed') {
-						console.log('State is completed, but did not receive PDF. Retrying...');
+					if (data.state === "completed") {
+						console.log(
+							"State is completed, but did not receive PDF. Retrying..."
+						);
 						setTimeout(() => fetchResult(jobId), 1000);
 					} else if (data.error) {
 						console.error(`Error: ${data.error}`);
 						resultDiv.textContent += `Error for job ${jobId}: ${data.error}\n`;
-						loader.style.display = 'none';
+						loader.style.display = "none";
 						uploadButton.disabled = false;
 					} else {
 						console.log(`Job not yet completed, state: ${data.state}`);
@@ -310,23 +377,22 @@
 					}
 				}
 			} catch (error) {
-				console.error('Error fetching result:', error);
-				resultDiv.textContent = 'Error fetching result: ' + error.message;
-				loader.style.display = 'none';
+				console.error("Error fetching result:", error);
+				resultDiv.textContent = "Error fetching result: " + error.message;
+				loader.style.display = "none";
 				uploadButton.disabled = false;
 			}
 		}
 
 		pdfViewer.onload = function () {
-			console.log('PDF loaded successfully');
+			console.log("PDF loaded successfully");
 		};
 
 		pdfViewer.onerror = function () {
-			console.error('Error loading PDF');
-			resultDiv.textContent = 'Error: Failed to load PDF';
+			console.error("Error loading PDF");
+			resultDiv.textContent = "Error: Failed to load PDF";
 		};
 	</script>
-
 </body>
 
 </html>

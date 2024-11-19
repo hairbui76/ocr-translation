@@ -1,10 +1,7 @@
-// const Queue = require("bull");
 const ocr = require("./ocr");
 const translator = require("./translator");
 const pdf = require("./pdf");
-const { REDIS } = require("#configs/configs");
 const { simpleImageHash, simpleTranslatedTextHash } = require("./hash");
-const { sleep } = require("./test");
 const { Worker, Queue } = require("bullmq");
 
 class OCRQueue extends Queue {
