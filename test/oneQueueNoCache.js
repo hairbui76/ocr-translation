@@ -200,6 +200,7 @@ const instance = autocannon({
 				};
 			},
 			onResponse: async (status, body, context) => {
+				originalLog("LMAO");
 				totalRequests++;
 				const startTime = Date.now();
 
@@ -225,7 +226,11 @@ const instance = autocannon({
 						throw new Error("No jobId found in response");
 					}
 
-					await pollResult(jobId, "http://localhost:3000");
+					const res = await fetch(
+						"http://localhost:3000/api/v1/pdf/result/" + jobId
+					);
+					const pdfBlob = await res.blob();
+					console.log(pdfBlob);
 
 					const processingTime = Date.now() - startTime;
 					processingTimes.push(processingTime);

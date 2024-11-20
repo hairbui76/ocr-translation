@@ -139,11 +139,10 @@ const processUploadImages = async (req, res) => {
 				const averageProgress =
 					Object.values(progressTracker).reduce((acc, curr) => acc + curr, 0) /
 					count;
-				console.log("Average progress:", averageProgress);
 				res.write(
 					`data: ${JSON.stringify({
 						state: "active",
-						progress: averageProgress,
+						progress: progress,
 						fileName: file.originalname,
 					})}\n\n`
 				);

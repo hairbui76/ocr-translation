@@ -169,6 +169,98 @@
 		#fileCount {
 			margin: 0;
 		}
+
+		.progress-container {
+			margin-top: 1rem;
+		}
+
+		.file-progress {
+			margin-bottom: 1rem;
+			background-color: #f5f5f5;
+			padding: 0.5rem;
+			border-radius: var(--border-radius);
+		}
+
+		.file-info {
+			display: flex;
+			justify-content: space-between;
+			margin-bottom: 0.5rem;
+			font-size: 0.9rem;
+		}
+
+		.file-name {
+			color: var(--text-color);
+			font-weight: 500;
+		}
+
+		.progress-percentage {
+			color: var(--primary-color);
+			font-weight: 600;
+		}
+
+		.progress-bar {
+			width: 100%;
+			height: 10px;
+			background-color: #e0e0e0;
+			border-radius: 5px;
+			overflow: hidden;
+		}
+
+		.progress {
+			width: 0;
+			height: 100%;
+			background-color: var(--primary-color);
+			transition: width 0.3s ease;
+		}
+
+		.tabs-container {
+			width: 100%;
+			margin-top: 1rem;
+		}
+
+		.tab-buttons {
+			display: flex;
+			gap: 0.5rem;
+			overflow-x: auto;
+			padding-bottom: 0.5rem;
+			border-bottom: 2px solid #e0e0e0;
+		}
+
+		.tab-button {
+			padding: 0.5rem 1rem;
+			background-color: #f5f5f5;
+			border: none;
+			border-radius: var(--border-radius);
+			cursor: pointer;
+			white-space: nowrap;
+			font-size: 0.9rem;
+			transition: all 0.3s ease;
+		}
+
+		.tab-button:hover {
+			background-color: #e0e0e0;
+		}
+
+		.tab-button.active {
+			background-color: var(--primary-color);
+			color: white;
+		}
+
+		.pdf-container {
+			display: none;
+			margin-top: 1rem;
+		}
+
+		.pdf-container.active {
+			display: block;
+		}
+
+		.pdf-viewer {
+			width: 100%;
+			height: 700px;
+			border: none;
+			border-radius: var(--border-radius);
+		}
 	</style>
 </head>
 
@@ -194,12 +286,13 @@
 			<p id="fileCount"></p>
 			<button type="submit" id="uploadButton" disabled>Convert to PDF</button>
 		</form>
-		<div class="progress-bar">
-			<div class="progress" id="progressBar"></div>
-		</div>
+		<div class="progress-container" id="progressContainer"></div>
 		<div class="loader" id="loader"></div>
-		<div id="result"></div>
-		<iframe id="pdfViewer"></iframe>
+		<div id="result" style="display: none"></div>
+		<div class="tabs-container">
+			<div class="tab-buttons" id="tabButtons"></div>
+			<div id="pdf-results-container"></div>
+		</div>
 	</div>
 
 	<script>
@@ -216,9 +309,31 @@
 		const folderSupported = $("#folder");
 		const uploadButton = $("#uploadButton");
 		const resultDiv = $("#result");
-		const pdfViewer = $("#pdfViewer");
 		const loader = $("#loader");
 		const progressBar = $("#progressBar");
+		const pdfResultsContainer = $("#pdf-results-container");
+
+		function createProgressBar(fileName) {
+			const progressElement = document.createElement('div');
+			progressElement.className = 'file-progress';
+			progressElement.innerHTML = `
+                <div class="file-info">
+                    <span class="file-name">${fileName}</span>
+                    <span class="progress-percentage">0%</span>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress"></div>
+                </div>
+            `;
+			return progressElement;
+		}
+
+		function updateProgress(progressElement, progress) {
+			const progressBar = progressElement.querySelector('.progress');
+			const percentageText = progressElement.querySelector('.progress-percentage');
+			progressBar.style.width = `${progress}%`;
+			percentageText.textContent = `${progress}%`;
+		}
 
 		folderSupported.addEventListener("change", function (e) {
 			const folderInput = $(".folder-input");
@@ -266,29 +381,32 @@
 
 		uploadForm.addEventListener("submit", async (e) => {
 			e.preventDefault();
-			const formData = new FormData();
+			$("#tabButtons").innerHTML = "";
+			$("#pdf-results-container").innerHTML = "";
 
-			if (folderSupported.checked) {
-				for (const file of folderInput.files) {
-					formData.append("images", file);
-				}
-			} else if (imageInput.files.length > 1) {
-				for (const file of imageInput.files) {
-					formData.append("images", file);
-				}
-			} else {
-				formData.append("image", imageInput.files[0]);
+			const formData = new FormData();
+			const files = folderSupported.checked ? folderInput.files : imageInput.files;
+			const progressContainer = $("#progressContainer");
+			progressContainer.innerHTML = ''; // Clear previous progress bars
+
+			// Create progress tracking object
+			const progressBars = new Map();
+
+			for (const file of files) {
+				formData.append(files.length > 1 ? "images" : "image", file);
+				const progressElement = createProgressBar(file.name);
+				progressContainer.appendChild(progressElement);
+				progressBars.set(file.name, progressElement);
 			}
+
 			formData.append("cached", cached.checked);
 
 			resultDiv.textContent = "Uploading...";
 			loader.style.display = "block";
-			pdfViewer.style.display = "none";
-			progressBar.style.width = "0%";
 			uploadButton.disabled = true;
 
 			try {
-				const uploadUrl = folderSupported.checked || imageInput.files.length > 1
+				const uploadUrl = files.length > 1
 					? `${BASE_URL}/upload/array`
 					: `${BASE_URL}/upload`;
 
@@ -300,7 +418,7 @@
 				if (response.body) {
 					const reader = response.body.getReader();
 					const decoder = new TextDecoder();
-					let jobIds = [];
+					let jobIds = new Map();
 
 					while (true) {
 						const { value, done } = await reader.read();
@@ -312,11 +430,14 @@
 								const data = JSON.parse(event.slice(6));
 								console.log("Received update:", data);
 
-								if (data.jobId) {
-									jobIds.push(data.jobId);
+								if (data.jobId && data.fileName) {
+									jobIds.set(data.jobId, data.fileName);
 									resultDiv.textContent += `Job ID: ${data.jobId} for file ${data.fileName}\n`;
 								} else if (data.state === "active") {
-									progressBar.style.width = `${data.progress}%`;
+									const progressElement = progressBars.get(data.fileName);
+									if (progressElement) {
+										updateProgress(progressElement, data.progress);
+									}
 									resultDiv.textContent += `Progress: ${data.progress}% for file ${data.fileName}\n`;
 								} else if (data.state === "failed") {
 									console.error("Job failed, reason:", data.failedReason);
@@ -326,9 +447,10 @@
 						}
 					}
 
-					for (const jobId of jobIds) {
-						fetchResult(jobId);
+					for (const [jobId, fileName] of jobIds) {
+						fetchResult(jobId, fileName);
 					}
+
 				} else {
 					console.error("Response body is not readable");
 				}
@@ -340,7 +462,11 @@
 			}
 		});
 
-		async function fetchResult(jobId) {
+		function shortenText(text, numChars) {
+			return text.length > numChars ? text.slice(0, numChars) + "..." : text;
+		}
+
+		async function fetchResult(jobId, fileName) {
 			console.log(`Fetching result for job ${jobId}`);
 			try {
 				const response = await fetch(`${BASE_URL}/result/${jobId}`);
@@ -352,9 +478,40 @@
 					console.log("Received PDF, creating blob URL");
 					const pdfBlob = await response.blob();
 					const pdfUrl = URL.createObjectURL(pdfBlob);
+
+					const tabButtons = $("#tabButtons");
+					const button = document.createElement("button");
+					button.className = "tab-button";
+					button.textContent = `${fileName.length > 20 ? shortenText(fileName, 20) : fileName}`;
+					tabButtons.appendChild(button);
+
+					// Create PDF container
+					const pdfContainer = document.createElement("div");
+					pdfContainer.className = "pdf-container";
+					const pdfViewer = document.createElement("iframe");
+					pdfViewer.className = "pdf-viewer";
 					pdfViewer.src = pdfUrl;
-					pdfViewer.style.display = "block";
-					resultDiv.textContent += `Processing completed for job ${jobId}! PDF displayed below.\n`;
+					pdfContainer.appendChild(pdfViewer);
+					pdfResultsContainer.appendChild(pdfContainer);
+
+					// If this is the first PDF, make it active
+					if (tabButtons.children.length === 1) {
+						button.classList.add("active");
+						pdfContainer.classList.add("active");
+					}
+
+					// Add click event to tab button
+					button.addEventListener("click", () => {
+						// Remove active class from all buttons and containers
+						$$(".tab-button").forEach(btn => btn.classList.remove("active"));
+						$$(".pdf-container").forEach(container => container.classList.remove("active"));
+
+						// Add active class to clicked button and its container
+						button.classList.add("active");
+						pdfContainer.classList.add("active");
+					});
+
+					resultDiv.textContent += `Processing completed for job ${jobId}! PDF added to tabs.\n`;
 					loader.style.display = "none";
 					uploadButton.disabled = false;
 				} else {
@@ -383,15 +540,6 @@
 				uploadButton.disabled = false;
 			}
 		}
-
-		pdfViewer.onload = function () {
-			console.log("PDF loaded successfully");
-		};
-
-		pdfViewer.onerror = function () {
-			console.error("Error loading PDF");
-			resultDiv.textContent = "Error: Failed to load PDF";
-		};
 	</script>
 </body>
 

@@ -4,6 +4,9 @@ const pdf = require("./pdf");
 const { simpleImageHash, simpleTranslatedTextHash } = require("./hash");
 const { Worker, Queue } = require("bullmq");
 
+const OCR_WORKER_NUMS = 1;
+const TRANSLATION_WORKER_NUMS = 1;
+
 class OCRQueue extends Queue {
 	/**
 	 * OCR Queue constructor
@@ -18,7 +21,7 @@ class OCRQueue extends Queue {
 		this.progressListeners = new Map();
 
 		// initialize workers
-		for (let i = 0; i < 3; i++) {
+		for (let i = 0; i < OCR_WORKER_NUMS; i++) {
 			this.createOCRWorker(translationQueue);
 		}
 
@@ -168,7 +171,7 @@ class TranslationQueue extends Queue {
 		this.redisClient = redisClient;
 		this.progressListeners = new Map();
 
-		for (let i = 0; i < 2; i++) {
+		for (let i = 0; i < TRANSLATION_WORKER_NUMS; i++) {
 			this.createTranslationWorker();
 		}
 
