@@ -4,8 +4,8 @@ const pdf = require("./pdf");
 const { simpleImageHash, simpleTranslatedTextHash } = require("./hash");
 const { Worker, Queue } = require("bullmq");
 
-const OCR_WORKER_NUMS = 1;
-const TRANSLATION_WORKER_NUMS = 1;
+const OCR_WORKER_NUMS = 3;
+const TRANSLATION_WORKER_NUMS = 2;
 
 class OCRQueue extends Queue {
 	/**
@@ -285,13 +285,14 @@ class TranslationQueue extends Queue {
 			await job.updateProgress(80);
 			const pdfBuffer = await pdf.createPDF(translatedText);
 
-			await job.updateProgress(100);
 			console.log("PDF generated for job:", job.id);
+			await job.updateProgress(100);
 
 			return pdfBuffer;
 		} catch (error) {
 			console.error(`Error in translationPipeline for job ${job.id}:`, error);
-			throw error;
+			await job.updateProgress(100);
+			// return Buffer.from("");
 		}
 	}
 }
