@@ -50,6 +50,7 @@ const processUploadImage = async (req, res) => {
 			res.write(
 				`data: ${JSON.stringify({
 					state: "active",
+					jobId: job.id,
 					progress,
 					fileName: file.originalname,
 				})}\n\n`
@@ -64,6 +65,7 @@ const processUploadImage = async (req, res) => {
 			res.write(
 				`data: ${JSON.stringify({
 					state: "failed",
+					jobId: job.id,
 					error: error.message,
 					fileName: file.originalname,
 				})}\n\n`
@@ -78,8 +80,6 @@ const processUploadImage = async (req, res) => {
 			job.id + "_translation",
 			progressListener
 		);
-
-		ocrQueue.lmao();
 
 		//	add failed listener to the 2 queues
 		ocrQueue.addFailedListener(job.id, failedListener);
@@ -164,6 +164,7 @@ const processUploadImages = async (req, res) => {
 				res.write(
 					`data: ${JSON.stringify({
 						state: "active",
+						jobId: job.id,
 						progress: progress,
 						fileName: file.originalname,
 					})}\n\n`
@@ -174,6 +175,20 @@ const processUploadImages = async (req, res) => {
 				}
 			};
 
+			const failedListener = async (error) => {
+				// Set progress to 100 to indicate completion
+				progressTracker[job.id] = 100;
+				res.write(
+					`data: ${JSON.stringify({
+						state: "failed",
+						jobId: job.id,
+						error: error.message,
+						fileName: file.originalname,
+					})}\n\n`
+				);
+				cleanup();
+			};
+
 			// add progress listener to the 2 queues
 			ocrQueue.addProgressListener(job.id, progressListener);
 			translationQueue.addProgressListener(
@@ -181,9 +196,18 @@ const processUploadImages = async (req, res) => {
 				progressListener
 			);
 
+			//	add failed listener to the 2 queues
+			ocrQueue.addFailedListener(job.id, failedListener);
+			translationQueue.addFailedListener(
+				job.id + "_translation",
+				failedListener
+			);
+
 			const cleanup = () => {
 				ocrQueue.removeProgressListener(job.id, progressListener);
 				translationQueue.removeProgressListener(job.id, progressListener);
+				ocrQueue.removeFailedListener(job.id, failedListener);
+				translationQueue.removeFailedListener(job.id, failedListener);
 			};
 
 			req.on("close", async () => {
@@ -206,41 +230,35 @@ const processUploadImages = async (req, res) => {
 };
 
 const getJobResult = async (req, res) => {
-	try {
-		// const ocrQueue = req.app.get("imageToPdfQueue");
-		const ocrQueue = req.app.get("translationQueue");
-		const job = await ocrQueue.getJob(req.params.jobId + "_translation");
-		if (!job) {
-			console.log(`Job ${req.params.jobId} not found`);
-			throw new NotFoundError("Job not found");
-		}
+	const translationQueue = req.app.get("translationQueue");
+	const job = await translationQueue.getJob(req.params.jobId + "_translation");
+	if (!job) {
+		console.log(`Job ${req.params.jobId} not found`);
+		throw new NotFoundError("Job not found");
+	}
 
-		const state = await job.getState();
-		console.log(`Job ${job.id} state:`, state);
+	const state = await job.getState();
+	console.log(`Job ${job.id} state:`, state);
 
-		if (state === "completed") {
-			const pdfBuffer = Buffer.from(job.returnvalue.data);
-			if (!pdfBuffer || !(pdfBuffer instanceof Buffer)) {
-				console.error(`Job ${job.id} completed but invalid PDF buffer found`);
-				throw new InternalServerError("Invalid PDF generated");
-			}
-			console.log(
-				`Sending PDF for job ${job.id}, buffer length: ${pdfBuffer.length}`
-			);
-			res.setHeader("Content-Type", "application/pdf");
-			res.setHeader("Content-Disposition", "attachment; filename=result.pdf");
-			return res.send(pdfBuffer);
-		} else if (state === "failed") {
-			const reason = job.failedReason;
-			console.error(`Job ${job.id} failed:`, reason);
-			throw new InternalServerError(`Job ${job.id} failed: ${reason}`);
-		} else {
-			console.log(`Job ${job.id} not yet completed, state: ${state}`);
-			return res.status(202).json({ state });
+	if (state === "completed") {
+		const pdfBuffer = Buffer.from(job.returnvalue.data);
+		if (!pdfBuffer || !(pdfBuffer instanceof Buffer)) {
+			console.error(`Job ${job.id} completed but invalid PDF buffer found`);
+			throw new InternalServerError("Invalid PDF generated");
 		}
-	} catch (error) {
-		console.error("Error retrieving job result:", error);
-		throw new InternalServerError(error.message);
+		console.log(
+			`Sending PDF for job ${job.id}, buffer length: ${pdfBuffer.length}`
+		);
+		res.setHeader("Content-Type", "application/pdf");
+		res.setHeader("Content-Disposition", "attachment; filename=result.pdf");
+		return res.send(pdfBuffer);
+	} else if (state === "failed") {
+		const reason = job.failedReason;
+		console.error(`Job ${job.id} failed:`, reason);
+		throw new InternalServerError(`Job ${job.id} failed: ${reason}`);
+	} else {
+		console.log(`Job ${job.id} not yet completed, state: ${state}`);
+		return res.status(202).json({ state });
 	}
 };
 

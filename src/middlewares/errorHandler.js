@@ -13,7 +13,7 @@ const ApiError = require("#utils/ApiError");
 function errorHandler(err, req, res, next) {
 	console.trace(err);
 	if (err instanceof ApiError) {
-		return res.status(err.status).json({
+		return res.status(err.code).json({
 			message: err.message,
 		});
 	}

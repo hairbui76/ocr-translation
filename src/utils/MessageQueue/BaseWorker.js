@@ -22,7 +22,6 @@ class BaseWorker extends Worker {
 		this.on("failed", (job, error) => {
 			console.error("OCR Job failed:", job.id, error);
 			const listener = this.failedListeners.get(job.id);
-			console.log("listener", listener);
 			if (listener) {
 				listener(error);
 			}

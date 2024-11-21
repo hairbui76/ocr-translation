@@ -261,6 +261,43 @@
 			border: none;
 			border-radius: var(--border-radius);
 		}
+
+		.file-progress.error .progress-bar {
+			background-color: #ffebee;
+			border: 1px solid #ffcdd2;
+			cursor: pointer;
+		}
+
+		.file-progress.error .progress {
+			background-color: #ef5350;
+		}
+
+		.file-progress.error .progress-percentage {
+			color: #ef5350;
+		}
+
+		/* Error tooltip styles */
+		.error-tooltip {
+			display: none;
+			position: absolute;
+			background-color: #424242;
+			color: white;
+			padding: 8px 12px;
+			border-radius: 4px;
+			font-size: 14px;
+			max-width: 300px;
+			z-index: 1000;
+			word-wrap: break-word;
+		}
+
+		.file-progress.error:hover .error-tooltip {
+			display: block;
+		}
+
+		/* Position the progress element relatively for absolute tooltip positioning */
+		.file-progress {
+			position: relative;
+		}
 	</style>
 </head>
 
@@ -324,6 +361,7 @@
                 <div class="progress-bar">
                     <div class="progress"></div>
                 </div>
+                <div class="error-tooltip"></div>
             `;
 			return progressElement;
 		}
@@ -333,6 +371,16 @@
 			const percentageText = progressElement.querySelector('.progress-percentage');
 			progressBar.style.width = `${progress}%`;
 			percentageText.textContent = `${progress}%`;
+		}
+
+		function markProgressAsError(progressElement, errorMessage) {
+			progressElement.classList.add('error');
+			const tooltip = progressElement.querySelector('.error-tooltip');
+			tooltip.textContent = errorMessage;
+			const progressBar = progressElement.querySelector('.progress');
+			progressBar.style.width = '100%';
+			const percentageText = progressElement.querySelector('.progress-percentage');
+			percentageText.textContent = 'Failed';
 		}
 
 		folderSupported.addEventListener("change", function (e) {
@@ -430,18 +478,26 @@
 								const data = JSON.parse(event.slice(6));
 								console.log("Received update:", data);
 
-								if (data.jobId && data.fileName) {
-									jobIds.set(data.jobId, data.fileName);
-									resultDiv.textContent += `Job ID: ${data.jobId} for file ${data.fileName}\n`;
-								} else if (data.state === "active") {
+								if (data.state === "failed") {
+									console.error("Job failed, reason:", data.error, data.jobId);
+									jobIds.delete(data.jobId);
 									const progressElement = progressBars.get(data.fileName);
 									if (progressElement) {
-										updateProgress(progressElement, data.progress);
+										markProgressAsError(progressElement, data.error || 'An unknown error occurred');
 									}
-									resultDiv.textContent += `Progress: ${data.progress}% for file ${data.fileName}\n`;
-								} else if (data.state === "failed") {
-									console.error("Job failed, reason:", data.failedReason);
-									resultDiv.textContent += `Job failed for file ${data.fileName}: ${data.failedReason}\n`;
+								} else {
+									if (data.state === "active") {
+										const progressElement = progressBars.get(data.fileName);
+										if (progressElement) {
+											updateProgress(progressElement, data.progress);
+										}
+										resultDiv.textContent += `Progress: ${data.progress}% for file ${data.fileName}\n`;
+									} else {
+										if (data.jobId && data.fileName) {
+											jobIds.set(data.jobId, data.fileName);
+											resultDiv.textContent += `Job ID: ${data.jobId} for file ${data.fileName}\n`;
+										}
+									}
 								}
 							}
 						}
@@ -517,6 +573,7 @@
 				} else {
 					console.log("Response is not a PDF, parsing as JSON");
 					const data = await response.json();
+					console.log(data.state)
 					if (data.state === "completed") {
 						console.log(
 							"State is completed, but did not receive PDF. Retrying..."
