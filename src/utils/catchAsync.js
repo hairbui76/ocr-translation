@@ -1,3 +1,5 @@
+// src/utils/CatchAsync.js
+
 /**
  * Catch async errors and call next without try catch
  * @param {function} fn function to be executed

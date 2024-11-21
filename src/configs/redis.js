@@ -1,3 +1,5 @@
+// src/configs/redis.js
+
 const Redis = require("ioredis");
 const configs = require("./configs");
 

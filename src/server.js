@@ -1,13 +1,13 @@
+// src/server.js
+
 const express = require("#configs/express");
 const path = require("path");
 const cors = require("cors");
 
 const routes = require("#routes");
-const { configs, logger, redis, rateLimit } = require("#configs");
+const { configs, logger, redis } = require("#configs");
 const { errorHandler, notFoundHandler } = require("#middlewares");
 const { OCRQueue, TranslationQueue } = require("#utils/ImageToPdfQueue");
-const { initOCRWorkers } = require("./workers/ocrWorkers");
-const { initTranslationWorkers } = require("./workers/translationWorkers");
 
 const app = express();
 
@@ -19,9 +19,6 @@ app.use(
 		extended: true,
 	})
 );
-
-/* -------------------- Static assets ------------------- */
-// app.use(express.static(path.join(__dirname, "public")));
 
 /* ------------------- EJS View engine ------------------ */
 app.set("views", path.join(__dirname, "views"));
@@ -52,10 +49,6 @@ redis
 		app.set("translationQueue", translationQueue);
 		const ocrQueue = new OCRQueue("ocr-queue", client, translationQueue);
 		app.set("ocrQueue", ocrQueue);
-
-		/* ------------------ Initiates workers ----------------- */
-		// initOCRWorkers(translationQueue);
-		// initTranslationWorkers();
 
 		/* ----------------- All routes traffic ----------------- */
 		app.use(routes);

@@ -1,3 +1,5 @@
+// src/configs/configs.js
+
 const configs = {
 	BASE: {
 		PORT: process.env.PORT || 3000,

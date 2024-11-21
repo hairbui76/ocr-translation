@@ -1,3 +1,5 @@
+// src/utils/translator.js
+
 const translator = require("open-google-translator");
 const CircuitBreaker = require("#utils/CircuitBreaker");
 const ApiError = require("./ApiError");

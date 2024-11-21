@@ -1,3 +1,5 @@
+// src/utils/ocr.js
+
 const tesseract = require("node-tesseract-ocr");
 const CircuitBreaker = require("#utils/CircuitBreaker");
 const ApiError = require("#utils/ApiError");

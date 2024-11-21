@@ -1,3 +1,5 @@
+// src/configs/logger.js
+
 const pino = require("pino");
 const pinoHttp = require("pino-http");
 
@@ -17,8 +19,10 @@ if (process.env.NODE_ENV !== "production") {
 		"{msg} [{req.method} {res.statusCode} {req.url}:> {responseTime}ms]";
 }
 
+const logger = pino(option);
+
 const pinocfg = {
-	logger: pino(option),
+	logger,
 	serializers: {
 		req: function (req) {
 			return {
@@ -41,6 +45,8 @@ const pinocfg = {
 	},
 };
 
-const logger = pinoHttp(pinocfg);
+const httpLogger = pinoHttp(pinocfg);
 
-module.exports = logger;
+module.exports = httpLogger;
+
+module.exports.logger = logger;

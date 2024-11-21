@@ -1,3 +1,5 @@
+// src/utils/CircuitBreaker.js
+
 const _CircuitBreaker = require("opossum");
 
 class CircuitBreaker extends _CircuitBreaker {
