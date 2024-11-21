@@ -3,7 +3,7 @@
 const { ApiError } = require("#utils");
 const { NotFoundError, BadRequestError, InternalServerError } = ApiError;
 const status = require("http-status");
-const { OCRQueue, TranslationQueue } = require("#utils/ImageToPdfQueue");
+const { OCRQueue, TranslationQueue } = require("#utils");
 
 /**
  * Process upload image
@@ -60,6 +60,18 @@ const processUploadImage = async (req, res) => {
 			}
 		};
 
+		const failedListener = async (error) => {
+			res.write(
+				`data: ${JSON.stringify({
+					state: "failed",
+					error: error.message,
+					fileName: file.originalname,
+				})}\n\n`
+			);
+			cleanup();
+			res.end();
+		};
+
 		// add progress listener to the 2 queues
 		ocrQueue.addProgressListener(job.id, progressListener);
 		translationQueue.addProgressListener(
@@ -67,9 +79,17 @@ const processUploadImage = async (req, res) => {
 			progressListener
 		);
 
+		ocrQueue.lmao();
+
+		//	add failed listener to the 2 queues
+		ocrQueue.addFailedListener(job.id, failedListener);
+		translationQueue.addFailedListener(job.id + "_translation", failedListener);
+
 		const cleanup = () => {
 			ocrQueue.removeProgressListener(job.id, progressListener);
 			translationQueue.removeProgressListener(job.id, progressListener);
+			ocrQueue.removeFailedListener(job.id, failedListener);
+			translationQueue.removeFailedListener(job.id, failedListener);
 		};
 
 		req.on("close", async () => {

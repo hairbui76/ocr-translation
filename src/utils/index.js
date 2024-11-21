@@ -4,7 +4,7 @@ const ApiError = require("./ApiError");
 const ocr = require("./ocr");
 const pdf = require("./pdf");
 const translator = require("./translator");
-const ImageToPdfQueue = require("./ImageToPdfQueue");
+const { OCRQueue, TranslationQueue } = require("./MessageQueue");
 const catchAsync = require("./catchAsync");
 const test = require("./test");
 
@@ -13,7 +13,8 @@ module.exports = {
 	ocr,
 	pdf,
 	translator,
-	ImageToPdfQueue,
+	OCRQueue,
+	TranslationQueue,
 	catchAsync,
 	test,
 };

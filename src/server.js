@@ -7,7 +7,7 @@ const cors = require("cors");
 const routes = require("#routes");
 const { configs, logger, redis } = require("#configs");
 const { errorHandler, notFoundHandler } = require("#middlewares");
-const { OCRQueue, TranslationQueue } = require("#utils/ImageToPdfQueue");
+const { OCRQueue, TranslationQueue } = require("#utils");
 
 const app = express();
 
