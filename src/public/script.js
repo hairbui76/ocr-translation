@@ -18,15 +18,15 @@ function createProgressBar(fileName) {
 	const progressElement = document.createElement("div");
 	progressElement.className = "file-progress";
 	progressElement.innerHTML = `
-														<div class="file-info">
-																		<span class="file-name">${fileName}</span>
-																		<span class="progress-percentage">0%</span>
-														</div>
-														<div class="progress-bar">
-																		<div class="progress"></div>
-														</div>
-														<div class="error-tooltip"></div>
-										`;
+			<div class="file-info">
+							<span class="file-name">${fileName}</span>
+							<span class="progress-percentage">0%</span>
+			</div>
+			<div class="progress-bar">
+							<div class="progress"></div>
+			</div>
+			<div class="error-tooltip"></div>
+	`;
 	return progressElement;
 }
 
@@ -130,8 +130,9 @@ uploadForm.addEventListener("submit", async (e) => {
 			const reader = response.body.getReader();
 			const decoder = new TextDecoder();
 			let jobIds = new Map();
+			let isDone = false;
 
-			while (true) {
+			while (!isDone) {
 				const { value, done } = await reader.read();
 				if (done) break;
 
@@ -139,7 +140,7 @@ uploadForm.addEventListener("submit", async (e) => {
 				for (const event of events) {
 					if (event.startsWith("data: ")) {
 						const data = JSON.parse(event.slice(6));
-						// console.log("Received update:", data);
+						console.log("Received update:", data);
 
 						if (data.state === "failed") {
 							console.error("Job failed, reason:", data.error, data.jobId);

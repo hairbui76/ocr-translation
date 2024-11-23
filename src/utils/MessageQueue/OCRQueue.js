@@ -41,6 +41,7 @@ class OCRQueue extends BaseQueue {
 						{
 							ocrResult,
 							fileName: job.data.fileName,
+							cached: job.data.cached,
 						},
 						{ jobId: job.id + "_translation" }
 					);
@@ -60,19 +61,21 @@ class OCRQueue extends BaseQueue {
 	 * @param {import("bull").Job} job Job to process
 	 * @returns {Promise<string>} OCR result
 	 */
-	async getOCRResult(imgBuffer, job) {
+	async getOCRResult(imgBuffer, job, cached) {
 		const hash = simpleImageHash(imgBuffer);
 		const cacheKey = `ocr:${hash}`;
 
 		try {
 			await job.updateProgress(10);
 
-			const cachedOCRResult = await this.redisClient.get(cacheKey);
+			if (cached) {
+				const cachedOCRResult = await this.redisClient.get(cacheKey);
 
-			if (cachedOCRResult) {
-				console.log("Found OCR result in cache for job:", job.id);
-				await job.updateProgress(40);
-				return cachedOCRResult;
+				if (cachedOCRResult) {
+					console.log("Found OCR result in cache for job:", job.id);
+					await job.updateProgress(40);
+					return cachedOCRResult;
+				}
 			}
 
 			await job.updateProgress(20);
@@ -96,13 +99,14 @@ class OCRQueue extends BaseQueue {
 	 * @returns {Promise<string>} OCR result
 	 */
 	async ocrPipeline(job) {
-		const { imgBuffer, fileName } = job.data;
+		const { imgBuffer, cached } = job.data;
 		try {
 			await job.updateProgress(0);
 			// OCR Filter
 			const ocrResult = await this.getOCRResult(
 				Buffer.from(imgBuffer.data),
-				job
+				job,
+				cached
 			);
 
 			await job.updateProgress(50);

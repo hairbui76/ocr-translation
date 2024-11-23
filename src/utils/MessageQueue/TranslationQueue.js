@@ -49,19 +49,21 @@ class TranslationQueue extends BaseQueue {
 	 * @param {import("bull").Job} job Job to process
 	 * @returns
 	 */
-	async getTranslatedText(ocrResult, job) {
+	async getTranslatedText(ocrResult, job, cached) {
 		const hash = simpleTranslatedTextHash(ocrResult);
 		const cacheKey = `translate:${hash}`;
 
 		try {
 			await job.updateProgress(60);
 
-			const cachedTranslatedText = await this.redisClient.get(cacheKey);
+			if (cached) {
+				const cachedTranslatedText = await this.redisClient.get(cacheKey);
 
-			if (cachedTranslatedText) {
-				console.log("Found translated text in cache for job:", job.id);
-				await job.updateProgress(70);
-				return cachedTranslatedText;
+				if (cachedTranslatedText) {
+					console.log("Found translated text in cache for job:", job.id);
+					await job.updateProgress(70);
+					return cachedTranslatedText;
+				}
 			}
 
 			// await job.updateProgress(60);
@@ -85,11 +87,15 @@ class TranslationQueue extends BaseQueue {
 	 * @returns {Promise<Buffer>} PDF buffer
 	 */
 	async translationPipeline(job) {
-		const { ocrResult } = job.data;
+		const { ocrResult, cached } = job.data;
 		try {
 			await job.updateProgress(50);
 			// Translation Filter
-			const translatedText = await this.getTranslatedText(ocrResult, job);
+			const translatedText = await this.getTranslatedText(
+				ocrResult,
+				job,
+				cached
+			);
 
 			await job.updateProgress(80);
 			const pdfBuffer = await pdf.createPDF(translatedText);
