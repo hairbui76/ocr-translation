@@ -5,7 +5,8 @@
 	"scripts": {
 		"start": "node index.js",
 		"test": "echo \"Error: no test specified\" && exit 1",
-		"dev": "nodemon -L -e html,css,js,json --watch src --env-file .env --trace-warnings src/server.js"
+		"dev": "nodemon -L -e html,css,js,json --watch src --env-file .env --trace-warnings src/server.js",
+		"dev2": "concurrently \"npm run dev\" \"cd ambassador && npm run dev\""
 	},
 	"author": "",
 	"license": "ISC",
@@ -34,6 +35,7 @@
 	"devDependencies": {
 		"@types/express": "^5.0.0",
 		"@types/node": "^22.7.5",
+		"concurrently": "^9.1.0",
 		"nodemon": "^3.1.7"
 	},
 	"imports": {

@@ -1,11 +1,16 @@
 // ambassador/server.js
-const express = require("express");
+
+const express = require("./configs/express");
 const CircuitBreaker = require("opossum");
 const multer = require("multer");
 const FormData = require("form-data");
 const axios = require("axios");
 const { Readable } = require("stream");
 const cors = require("cors");
+const {
+	validateSingleFile,
+	validateMultipleFiles,
+} = require("./middlewares/fileValidation");
 
 class AmbassadorService {
 	constructor() {
@@ -72,7 +77,7 @@ class AmbassadorService {
 							transformResponse:
 								config.responseType === "stream"
 									? []
-									: axios.defaults.transformResponse,
+									: axios.default.transformResponse,
 						});
 					} catch (error) {
 						if (error.response) {
@@ -143,6 +148,7 @@ class AmbassadorService {
 			}
 			// Handle PDF or other binary responses
 			else if (response.config?.responseType === "arraybuffer") {
+				console.log("Handling PDF response");
 				if (response.data) {
 					res.send(Buffer.from(response.data));
 				} else {
@@ -168,11 +174,14 @@ class AmbassadorService {
 
 	getResponseType(path, headers) {
 		// For SSE requests
-		if (path.includes("/api/pdf/upload")) {
+		if (
+			path.includes("/api/pdf/upload") ||
+			path.includes("/api/pdf/upload/array")
+		) {
 			return "stream";
 		}
 		// For PDF downloads
-		if (path.includes("/pdf/result/")) {
+		if (path.includes("/pdf/result")) {
 			return "arraybuffer";
 		}
 		return "json";
@@ -280,12 +289,24 @@ class AmbassadorService {
 			res.json({ status: "healthy" });
 		});
 
-		// Handle all routes with file upload support
-		this.app.all(
-			"*",
-			this.upload.any(), // Handle any file uploads
+		// Handle single file uploads
+		this.app.post(
+			"/api/pdf/upload",
+			this.upload.single("image"),
+			validateSingleFile,
 			(req, res) => this.forwardRequest(req, res)
 		);
+
+		// Handle multiple file uploads
+		this.app.post(
+			"/api/pdf/upload/array",
+			validateMultipleFiles,
+			this.upload.array("images"),
+			(req, res) => this.forwardRequest(req, res)
+		);
+
+		// Handle all routes
+		this.app.all("*", (req, res) => this.forwardRequest(req, res));
 	}
 
 	start(port = 3001, hostname = "localhost") {

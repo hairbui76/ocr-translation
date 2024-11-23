@@ -130,8 +130,9 @@ uploadForm.addEventListener("submit", async (e) => {
 			const reader = response.body.getReader();
 			const decoder = new TextDecoder();
 			let jobIds = new Map();
+			let isDone = false;
 
-			while (true) {
+			while (!isDone) {
 				const { value, done } = await reader.read();
 				if (done) break;
 
@@ -139,7 +140,7 @@ uploadForm.addEventListener("submit", async (e) => {
 				for (const event of events) {
 					if (event.startsWith("data: ")) {
 						const data = JSON.parse(event.slice(6));
-						// console.log("Received update:", data);
+						console.log("Received update:", data);
 
 						if (data.state === "failed") {
 							console.error("Job failed, reason:", data.error, data.jobId);
@@ -165,6 +166,9 @@ uploadForm.addEventListener("submit", async (e) => {
 								}
 							}
 						}
+					} else {
+						isDone = true;
+						break;
 					}
 				}
 			}
