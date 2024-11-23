@@ -7,7 +7,7 @@ const v1 = require("./v1");
 
 router.get("/", (req, res) => {
 	return res.render("index", {
-		servicePort: configs.BASE.AMBASSADOR_PORT,
+		servicePort: configs.BASE.PORT,
 	});
 });
 router.get("/api", (req, res, next) => {

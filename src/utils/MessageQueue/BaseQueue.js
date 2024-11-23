@@ -2,6 +2,8 @@
 
 const { Queue } = require("bullmq");
 
+const MAX_LISTENERS = 100;
+
 class BaseQueue extends Queue {
 	/**
 	 * Base Queue constructor
@@ -15,6 +17,7 @@ class BaseQueue extends Queue {
 		this.progressListeners = new Map();
 		this.failedListeners = new Map();
 		this.workers = [];
+		this.setMaxListeners(MAX_LISTENERS);
 	}
 
 	addProgressListener(jobId, listener) {
