@@ -14,6 +14,7 @@ class BaseQueue extends Queue {
 		this.redisClient = redisClient;
 		this.progressListeners = new Map();
 		this.failedListeners = new Map();
+		this.completedListeners = new Map();
 		this.workers = [];
 	}
 
@@ -31,6 +32,14 @@ class BaseQueue extends Queue {
 
 	removeFailedListener(jobId) {
 		this.failedListeners.delete(jobId);
+	}
+
+	addCompletedListener(jobId, listener) {
+		this.completedListeners.set(jobId, listener);
+	}
+
+	removeCompletedListener(jobId) {
+		this.completedListeners.delete(jobId);
 	}
 }
 

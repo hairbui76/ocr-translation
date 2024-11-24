@@ -9,7 +9,6 @@ const folderInput = $("#folderInput");
 const cached = $("#cached");
 const folderSupported = $("#folder");
 const uploadButton = $("#uploadButton");
-const resultDiv = $("#result");
 const loader = $("#loader");
 const progressBar = $("#progressBar");
 const pdfResultsContainer = $("#pdf-results-container");
@@ -113,7 +112,6 @@ uploadForm.addEventListener("submit", async (e) => {
 
 	formData.append("cached", cached.checked);
 
-	resultDiv.textContent = "Uploading...";
 	loader.style.display = "block";
 	uploadButton.disabled = true;
 
@@ -129,7 +127,6 @@ uploadForm.addEventListener("submit", async (e) => {
 		if (response.body) {
 			const reader = response.body.getReader();
 			const decoder = new TextDecoder();
-			let jobIds = new Map();
 			let isDone = false;
 
 			while (!isDone) {
@@ -144,7 +141,6 @@ uploadForm.addEventListener("submit", async (e) => {
 
 						if (data.state === "failed") {
 							console.error("Job failed, reason:", data.error, data.jobId);
-							jobIds.delete(data.jobId);
 							const progressElement = progressBars.get(data.fileName);
 							if (progressElement) {
 								markProgressAsError(
@@ -158,27 +154,22 @@ uploadForm.addEventListener("submit", async (e) => {
 								if (progressElement) {
 									updateProgress(progressElement, data.progress);
 								}
-								resultDiv.textContent += `Progress: ${data.progress}% for file ${data.fileName}\n`;
-							} else {
-								if (data.jobId && data.fileName) {
-									jobIds.set(data.jobId, data.fileName);
-									resultDiv.textContent += `Job ID: ${data.jobId} for file ${data.fileName}\n`;
+							} else if (data.state === "completed") {
+								fetchResult(data.jobId, data.fileName);
+								const progressElement = progressBars.get(data.fileName);
+								if (progressElement) {
+									updateProgress(progressElement, 100);
 								}
 							}
 						}
 					}
 				}
 			}
-
-			for (const [jobId, fileName] of jobIds) {
-				fetchResult(jobId, fileName);
-			}
 		} else {
 			console.error("Response body is not readable");
 		}
 	} catch (error) {
 		console.error(error);
-		resultDiv.textContent = "Error: " + error.message;
 		loader.style.display = "none";
 		uploadButton.disabled = false;
 	}
@@ -235,7 +226,6 @@ async function fetchResult(jobId, fileName) {
 				pdfContainer.classList.add("active");
 			});
 
-			resultDiv.textContent += `Processing completed for job ${jobId}! PDF added to tabs.\n`;
 			loader.style.display = "none";
 			uploadButton.disabled = false;
 		} else {
@@ -247,18 +237,15 @@ async function fetchResult(jobId, fileName) {
 				setTimeout(() => fetchResult(jobId), 1000);
 			} else if (data.error) {
 				console.error(`Error: ${data.error}`);
-				resultDiv.textContent += `Error for job ${jobId}: ${data.error}\n`;
 				loader.style.display = "none";
 				uploadButton.disabled = false;
 			} else {
 				console.log(`Job not yet completed, state: ${data.state}`);
-				resultDiv.textContent += `Status for job ${jobId}: ${data.state}\n`;
 				setTimeout(() => fetchResult(jobId), 1000);
 			}
 		}
 	} catch (error) {
 		console.error("Error fetching result:", error);
-		resultDiv.textContent = "Error fetching result: " + error.message;
 		loader.style.display = "none";
 		uploadButton.disabled = false;
 	}

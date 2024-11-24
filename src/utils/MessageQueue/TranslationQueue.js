@@ -26,6 +26,7 @@ class TranslationQueue extends BaseQueue {
 		return new BaseWorker(
 			this.progressListeners,
 			this.failedListeners,
+			this.completedListeners,
 			"translation-queue",
 			async (job) => {
 				console.log("Translation job", job.id, "at", new Date());

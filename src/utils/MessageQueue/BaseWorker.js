@@ -3,10 +3,11 @@
 const { Worker } = require("bullmq");
 
 class BaseWorker extends Worker {
-	constructor(progressListeners, failedListeners, ...args) {
+	constructor(progressListeners, failedListeners, completedListeners, ...args) {
 		super(...args);
 		this.progressListeners = progressListeners;
 		this.failedListeners = failedListeners;
+		this.completedListeners = completedListeners;
 
 		this.on("progress", (job, progress) => {
 			const listener = this.progressListeners.get(job.id);
@@ -24,6 +25,14 @@ class BaseWorker extends Worker {
 			const listener = this.failedListeners.get(job.id);
 			if (listener) {
 				listener(error);
+			}
+		});
+
+		this.on("completed", (job) => {
+			console.log("Job completed:", job.id);
+			const listener = this.completedListeners.get(job.id);
+			if (listener) {
+				listener();
 			}
 		});
 	}

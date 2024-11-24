@@ -28,6 +28,7 @@ class OCRQueue extends BaseQueue {
 		return new BaseWorker(
 			this.progressListeners,
 			this.failedListeners,
+			this.completedListeners,
 			"ocr-queue",
 			async (job) => {
 				console.log("OCR job", job.id, "at", new Date());

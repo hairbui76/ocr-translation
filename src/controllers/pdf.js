@@ -55,10 +55,6 @@ const processUploadImage = async (req, res) => {
 					fileName: file.originalname,
 				})}\n\n`
 			);
-			if (progress === 100) {
-				cleanup();
-				res.end();
-			}
 		};
 
 		const failedListener = async (error) => {
@@ -67,6 +63,17 @@ const processUploadImage = async (req, res) => {
 					state: "failed",
 					jobId: job.id,
 					error: error.message,
+					fileName: file.originalname,
+				})}\n\n`
+			);
+			cleanup();
+		};
+
+		const completedListener = async () => {
+			res.write(
+				`data: ${JSON.stringify({
+					state: "completed",
+					jobId: job.id,
 					fileName: file.originalname,
 				})}\n\n`
 			);
@@ -85,11 +92,29 @@ const processUploadImage = async (req, res) => {
 		ocrQueue.addFailedListener(job.id, failedListener);
 		translationQueue.addFailedListener(job.id + "_translation", failedListener);
 
+		// add completed listener to the 2 queues
+		ocrQueue.addCompletedListener(job.id, completedListener);
+		translationQueue.addCompletedListener(
+			job.id + "_translation",
+			completedListener
+		);
+
 		const cleanup = () => {
 			ocrQueue.removeProgressListener(job.id, progressListener);
-			translationQueue.removeProgressListener(job.id, progressListener);
+			translationQueue.removeProgressListener(
+				job.id + "_translation",
+				progressListener
+			);
 			ocrQueue.removeFailedListener(job.id, failedListener);
-			translationQueue.removeFailedListener(job.id, failedListener);
+			translationQueue.removeFailedListener(
+				job.id + "_translation",
+				failedListener
+			);
+			ocrQueue.removeCompletedListener(job.id, completedListener);
+			translationQueue.removeCompletedListener(
+				job.id + "_translation",
+				completedListener
+			);
 		};
 
 		req.on("close", async () => {
@@ -136,18 +161,14 @@ const processUploadImages = async (req, res) => {
 			Connection: "keep-alive",
 		});
 
-		let count = 0;
-		const progressTracker = {};
 		// Loop over each uploaded file
 		for (const file of req.files) {
-			count += 1;
 			// Add job to OCR queue for each image
 			const job = await ocrQueue.add(file.originalname, {
 				imgBuffer: file.buffer,
 				cached: req.body.cached === "true",
 				fileName: file.originalname,
 			});
-			progressTracker[job.id] = 0;
 			console.log("Job added to ocrQueue:", job.id);
 
 			// Send initial job ID
@@ -157,10 +178,6 @@ const processUploadImages = async (req, res) => {
 
 			// Set up event listeners for job progress and completion
 			const progressListener = async (progress) => {
-				progressTracker[job.id] = progress;
-				const averageProgress =
-					Object.values(progressTracker).reduce((acc, curr) => acc + curr, 0) /
-					count;
 				res.write(
 					`data: ${JSON.stringify({
 						state: "active",
@@ -169,20 +186,25 @@ const processUploadImages = async (req, res) => {
 						fileName: file.originalname,
 					})}\n\n`
 				);
-				if (averageProgress === 100) {
-					cleanup();
-					res.end();
-				}
 			};
 
 			const failedListener = async (error) => {
-				// Set progress to 100 to indicate completion
-				progressTracker[job.id] = 100;
 				res.write(
 					`data: ${JSON.stringify({
 						state: "failed",
 						jobId: job.id,
 						error: error.message,
+						fileName: file.originalname,
+					})}\n\n`
+				);
+				cleanup();
+			};
+
+			const completedListener = async () => {
+				res.write(
+					`data: ${JSON.stringify({
+						state: "completed",
+						jobId: job.id,
 						fileName: file.originalname,
 					})}\n\n`
 				);
@@ -203,11 +225,29 @@ const processUploadImages = async (req, res) => {
 				failedListener
 			);
 
+			// add completed listener to the 2 queues
+			// ocrQueue.addCompletedListener(job.id, completedListener);
+			translationQueue.addCompletedListener(
+				job.id + "_translation",
+				completedListener
+			);
+
 			const cleanup = () => {
 				ocrQueue.removeProgressListener(job.id, progressListener);
-				translationQueue.removeProgressListener(job.id, progressListener);
+				translationQueue.removeProgressListener(
+					job.id + "_translation",
+					progressListener
+				);
 				ocrQueue.removeFailedListener(job.id, failedListener);
-				translationQueue.removeFailedListener(job.id, failedListener);
+				translationQueue.removeFailedListener(
+					job.id + "_translation",
+					failedListener
+				);
+				ocrQueue.removeCompletedListener(job.id, completedListener);
+				translationQueue.removeCompletedListener(
+					job.id + "_translation",
+					completedListener
+				);
 			};
 
 			req.on("close", async () => {
