@@ -12,17 +12,24 @@ const uploadButton = $("#uploadButton");
 const loader = $("#loader");
 const progressBar = $("#progressBar");
 const pdfResultsContainer = $("#pdf-results-container");
+const totalTime = $(".total-time");
+
+let totalProcessingTime = 0;
 
 function createProgressBar(fileName) {
 	const progressElement = document.createElement("div");
 	progressElement.className = "file-progress";
 	progressElement.innerHTML = `
 			<div class="file-info">
-							<span class="file-name">${fileName}</span>
-							<span class="progress-percentage">0%</span>
+				<span class="file-name">${fileName}</span>
+				<div class="progress-status">
+					<span class="progress-percentage">0%</span>
+					<span>/</span>
+					<span class="progress-time"></span>
+				</div>
 			</div>
 			<div class="progress-bar">
-							<div class="progress"></div>
+				<div class="progress"></div>
 			</div>
 			<div class="error-tooltip"></div>
 	`;
@@ -94,6 +101,7 @@ uploadForm.addEventListener("submit", async (e) => {
 	e.preventDefault();
 	$("#tabButtons").innerHTML = "";
 	$("#pdf-results-container").innerHTML = "";
+	totalProcessingTime = 0;
 
 	const formData = new FormData();
 	const files = folderSupported.checked ? folderInput.files : imageInput.files;
@@ -128,6 +136,7 @@ uploadForm.addEventListener("submit", async (e) => {
 			const reader = response.body.getReader();
 			const decoder = new TextDecoder();
 			let isDone = false;
+			const jobTracker = new Map();
 
 			while (!isDone) {
 				const { value, done } = await reader.read();
@@ -150,15 +159,24 @@ uploadForm.addEventListener("submit", async (e) => {
 							}
 						} else {
 							if (data.state === "active") {
+								if (data.progress === 0) jobTracker.set(data.jobId, Date.now());
 								const progressElement = progressBars.get(data.fileName);
 								if (progressElement) {
 									updateProgress(progressElement, data.progress);
 								}
 							} else if (data.state === "completed") {
-								fetchResult(data.jobId, data.fileName);
 								const progressElement = progressBars.get(data.fileName);
 								if (progressElement) {
+									const progressTime =
+										progressElement.querySelector(".progress-time");
+									const startTime = jobTracker.get(data.jobId);
+									const endTime = Date.now();
+									const elapsedTime = endTime - startTime;
+									progressTime.textContent = `${(elapsedTime / 1000).toFixed(4)}s`;
+									totalProcessingTime += elapsedTime;
+									totalTime.textContent = `Total processing time: ${(totalProcessingTime / 1000).toFixed(4)}s`;
 									updateProgress(progressElement, 100);
+									await fetchResult(data.jobId, data.fileName);
 								}
 							}
 						}
@@ -195,7 +213,7 @@ async function fetchResult(jobId, fileName) {
 			const tabButtons = $("#tabButtons");
 			const button = document.createElement("button");
 			button.className = "tab-button";
-			button.textContent = `${fileName.length > 20 ? shortenText(fileName, 20) : fileName}`;
+			button.textContent = `${fileName?.length > 20 ? shortenText(fileName, 20) : fileName}`;
 			tabButtons.appendChild(button);
 
 			// Create PDF container
@@ -234,14 +252,14 @@ async function fetchResult(jobId, fileName) {
 			console.log(data.state);
 			if (data.state === "completed") {
 				console.log("State is completed, but did not receive PDF. Retrying...");
-				setTimeout(() => fetchResult(jobId), 1000);
+				setTimeout(() => fetchResult(jobId, data.fileName), 100);
 			} else if (data.error) {
 				console.error(`Error: ${data.error}`);
 				loader.style.display = "none";
 				uploadButton.disabled = false;
 			} else {
 				console.log(`Job not yet completed, state: ${data.state}`);
-				setTimeout(() => fetchResult(jobId), 1000);
+				setTimeout(() => fetchResult(jobId, data.fileName), 100);
 			}
 		}
 	} catch (error) {

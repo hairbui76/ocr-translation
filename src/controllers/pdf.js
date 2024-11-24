@@ -298,7 +298,7 @@ const getJobResult = async (req, res) => {
 		throw new InternalServerError(`Job ${job.id} failed: ${reason}`);
 	} else {
 		console.log(`Job ${job.id} not yet completed, state: ${state}`);
-		return res.status(202).json({ state });
+		return res.status(202).json({ state, fileName: job.data.fileName });
 	}
 };
 

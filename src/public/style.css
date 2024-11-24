@@ -138,6 +138,16 @@ h1 {
 	transition: width 0.3s ease;
 }
 
+.progress-status {
+	display: flex;
+	gap: 5px;
+}
+
+.total-time {
+	text-align: right;
+	font-weight: bold;
+}
+
 .upload-btn-container {
 	display: flex;
 	justify-content: space-between;

@@ -4,6 +4,7 @@ const path = require("path");
 const FormData = require("form-data");
 const http = require("http");
 const EventEmitter = require("events");
+const { sleep } = require("#utils/test");
 
 // Create event emitter for custom events
 EventEmitter.defaultMaxListeners = 50;
@@ -109,78 +110,33 @@ const checkPdfBytes = (data) => {
 	};
 };
 
-// Poll for job result
-const pollResult = async (jobId, baseUrl, maxAttempts = 30) => {
-	for (let i = 0; i < maxAttempts; i++) {
-		try {
-			const response = await makeRequest(
-				`${baseUrl}/api/v1/pdf/result/${jobId}`,
-				{
-					responseType: "buffer",
-				}
-			);
+async function fetchResult(jobId) {
+	try {
+		const response = await fetch(
+			`http://localhost:3000/api/v1/pdf/result/${jobId}`
+		);
 
-			if (response.headers["content-type"] === "application/pdf") {
-				// Return the PDF data for logging
-				return {
-					success: true,
-					data: response.data,
-					contentType: "application/pdf",
-				};
+		if (response.headers.get("Content-Type") !== "application/pdf") {
+			const data = await response.json();
+			if (data.state === "completed") {
+				await sleep(100);
+				return fetchResult(jobId);
+			} else if (data.error) {
+				console.error("Job failed:", data.error);
+				return null;
+			} else {
+				await sleep(100);
+				return fetchResult(jobId);
 			}
-
-			const result = JSON.parse(response.data);
-			if (result.state === "completed") {
-				return {
-					success: true,
-					data: result,
-					contentType: "application/json",
-				};
-			}
-		} catch (e) {
-			console.error(`Poll attempt ${i + 1} failed:`, e.message);
 		}
 
-		await new Promise((resolve) => setTimeout(resolve, 1000));
+		return response;
+	} catch (error) {
+		console.error("Error fetching result:", error);
+		loader.style.display = "none";
+		uploadButton.disabled = false;
 	}
-	throw new Error("Max polling attempts reached");
-};
-
-// Make HTTP request that returns a Promise
-const makeRequest = (url, options = {}) => {
-	return new Promise((resolve, reject) => {
-		const req = http.request(url, options, (res) => {
-			const chunks = [];
-			res.on("data", (chunk) => chunks.push(chunk));
-			res.on("end", () => {
-				const data = Buffer.concat(chunks);
-				resolve({
-					statusCode: res.statusCode,
-					headers: res.headers,
-					data: options.responseType === "buffer" ? data : data.toString(),
-				});
-			});
-		});
-		req.on("error", reject);
-		if (options.body) req.write(options.body);
-		req.end();
-	});
-};
-
-const formatResponsePreview = (body, maxLength = 100) => {
-	try {
-		const content = body.toString().trim();
-		const truncated =
-			content.length > maxLength
-				? content.slice(0, maxLength) + "..."
-				: content;
-		return truncated.replace(/\n/g, "\\n"); // Replace newlines with visible \n for better logging
-	} catch (e) {
-		return "Unable to format response";
-	}
-};
-
-const originalLog = console.log;
+}
 
 const parseEventStreamData = (body) => {
 	const events = [];
@@ -226,7 +182,7 @@ async function runBenchmark() {
 						filename: "test.png",
 						contentType: "image/png",
 					});
-					form.append("cached", "false");
+					form.append("cached", "true");
 
 					return {
 						...request,
@@ -243,40 +199,47 @@ async function runBenchmark() {
 						// Parse all events from the response
 						const events = parseEventStreamData(body);
 
-						// Log each event
-						const jobId = events.find((event) => event.jobId).jobId;
+						let completed = false;
+						let jobId = null;
 
-						if (!jobId) {
-							throw new Error("No jobId found in response");
-						}
+						events.forEach((e) => {
+							if (e.state === "completed") {
+								completed = true;
+								jobId = e.jobId;
+								return;
+							}
+						});
+						originalLog(jobId, completed);
 
-						// Wait for and get the PDF
-						const res = await fetch(
-							"http://localhost:3000/api/v1/pdf/result/" + jobId
-						);
+						if (jobId) {
+							// Wait for and get the PDF
+							const result = await fetchResult(jobId);
 
-						const pdfResult = await res.blob();
+							const pdfResult = await result.blob();
 
-						originalLog(pdfResult);
+							originalLog(pdfResult);
 
-						const processingTime = Date.now() - startTime;
-						processingTimes.push(processingTime);
-						totalProcessingTime += processingTime;
-						successfulRequests++;
-						completedRequests++;
+							const processingTime = Date.now() - startTime;
+							processingTimes.push(processingTime);
+							totalProcessingTime += processingTime;
+							successfulRequests++;
+							completedRequests++;
 
-						originalLog(
-							`Request ${completedRequests}/${totalRequests} completed in ${processingTime}ms`
-						);
-
-						if (pdfResult.contentType === "application/pdf") {
-							originalLog(`PDF received. Size: ${pdfResult.data.length} bytes`);
-
-							// Check if it's a valid PDF
-							const pdfCheck = checkPdfBytes(pdfResult.data);
 							originalLog(
-								`PDF validation: ${pdfCheck.isValidPdf ? "Valid" : "Invalid"} PDF`
+								`Request ${completedRequests}/${totalRequests} completed in ${processingTime}ms`
 							);
+
+							if (pdfResult.contentType === "application/pdf") {
+								originalLog(
+									`PDF received. Size: ${pdfResult.data.length} bytes`
+								);
+
+								// Check if it's a valid PDF
+								const pdfCheck = checkPdfBytes(pdfResult.data);
+								originalLog(
+									`PDF validation: ${pdfCheck.isValidPdf ? "Valid" : "Invalid"} PDF`
+								);
+							}
 						}
 					} catch (error) {
 						console.error("Error processing request:", error.message);
