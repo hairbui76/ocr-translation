@@ -6,7 +6,7 @@ const translator = require("#utils/translator");
 const pdf = require("#utils/pdf");
 const { simpleTranslatedTextHash } = require("#utils/hash");
 
-const TRANSLATION_WORKER_NUMS = 2;
+const TRANSLATION_WORKER_NUMS = 1;
 
 class TranslationQueue extends BaseQueue {
 	/**
