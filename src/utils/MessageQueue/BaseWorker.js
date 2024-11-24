@@ -8,6 +8,7 @@ class BaseWorker extends Worker {
 		this.progressListeners = progressListeners;
 		this.failedListeners = failedListeners;
 		this.completedListeners = completedListeners;
+		this.setMaxListeners(Infinity);
 
 		this.on("progress", (job, progress) => {
 			const listener = this.progressListeners.get(job.id);

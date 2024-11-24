@@ -16,6 +16,7 @@ class BaseQueue extends Queue {
 		this.failedListeners = new Map();
 		this.completedListeners = new Map();
 		this.workers = [];
+		this.setMaxListeners(Infinity);
 	}
 
 	addProgressListener(jobId, listener) {

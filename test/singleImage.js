@@ -7,7 +7,7 @@ const EventEmitter = require("events");
 const { sleep } = require("#utils/test");
 
 // Create event emitter for custom events
-EventEmitter.defaultMaxListeners = 50;
+EventEmitter.defaultMaxListeners = Infinity;
 
 // Track metrics
 let totalRequests = 0;
@@ -15,6 +15,8 @@ let completedRequests = 0;
 let successfulRequests = 0;
 let failedRequests = 0;
 let totalProcessingTime = 0;
+let totalStartTime = 0;
+let totalTime = 0;
 
 // Store processing times for percentile calculations
 const processingTimes = [];
@@ -70,6 +72,11 @@ const printResults = () => {
 	console.log(createRow(calculateStats(processingTimes)));
 
 	console.log("\nSummary:");
+	console.log(
+		"Total Elapsed Time:",
+		Math.max((totalTime / 1000).toFixed(4)),
+		"s"
+	);
 	console.log("Total Requests:", totalRequests);
 	console.log("Successful Requests:", successfulRequests);
 	console.log("Failed Requests:", failedRequests);
@@ -158,6 +165,7 @@ const parseEventStreamData = (body) => {
 
 // Run the benchmark
 async function runBenchmark() {
+	totalStartTime = Date.now();
 	const originalLog = console.log;
 	console.log = (...args) => {
 		if (args[0] && typeof args[0] === "string" && args[0].includes("Request")) {
@@ -167,13 +175,13 @@ async function runBenchmark() {
 
 	const instance = autocannon({
 		url: "http://localhost:3000",
-		connections: 10,
-		amount: 100,
+		connections: 5,
+		amount: 5,
 		requests: [
 			{
 				method: "POST",
 				path: "/api/v1/pdf/upload",
-				setupRequest: (request) => {
+				setupRequest: (request, context) => {
 					const form = new FormData();
 					const imageBuffer = fs.readFileSync(
 						path.join(__dirname, "../sample/data/sample.png")
@@ -182,7 +190,9 @@ async function runBenchmark() {
 						filename: "test.png",
 						contentType: "image/png",
 					});
-					form.append("cached", "true");
+					form.append("cached", "false");
+
+					context.startTime = Date.now();
 
 					return {
 						...request,
@@ -192,7 +202,7 @@ async function runBenchmark() {
 				},
 				onResponse: async (status, body, context) => {
 					totalRequests++;
-					const startTime = Date.now();
+					const startTime = context.startTime;
 
 					try {
 						// Log initial response
@@ -209,7 +219,6 @@ async function runBenchmark() {
 								return;
 							}
 						});
-						originalLog(jobId, completed);
 
 						if (jobId) {
 							// Wait for and get the PDF
@@ -253,6 +262,7 @@ async function runBenchmark() {
 	});
 
 	instance.on("done", () => {
+		totalTime = Date.now() - totalStartTime;
 		console.log = originalLog;
 		// Wait for any in-progress requests to complete
 		setTimeout(() => {
@@ -262,8 +272,10 @@ async function runBenchmark() {
 	});
 
 	originalLog("PDF Generation Benchmark");
-	originalLog(`Running ${instance.opts.duration}s test @ ${instance.opts.url}`);
-	originalLog(`${instance.opts.connections} connections\n`);
+	originalLog(`Running test @ ${instance.opts.url}`);
+	originalLog(
+		`${instance.opts.connections} connections, amount ${instance.opts.amount}\n`
+	);
 
 	return instance;
 }

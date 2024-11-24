@@ -6,7 +6,6 @@ services:
     environment:
       - PORT=3000
       - HOST=0.0.0.0
-      - AMBASSADOR_URL=http://127.0.0.1:3001
       - REDIS_URI=redis://redis:6379
     restart: unless-stopped
     depends_on:

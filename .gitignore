@@ -1,3 +1,5 @@
 node_modules
 .env
 output_*.pdf
+images
+.gitignore

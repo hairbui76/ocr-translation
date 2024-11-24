@@ -8,6 +8,9 @@ const routes = require("#routes");
 const { configs, logger, redis } = require("#configs");
 const { errorHandler, notFoundHandler } = require("#middlewares");
 const { OCRQueue, TranslationQueue } = require("#utils");
+const { EventEmitter } = require("events");
+
+EventEmitter.setMaxListeners(Infinity);
 
 const app = express();
 
