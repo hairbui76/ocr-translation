@@ -5,7 +5,7 @@ const BaseWorker = require("./BaseWorker");
 const ocr = require("#utils/ocr");
 const { simpleImageHash } = require("#utils/hash");
 
-const OCR_WORKER_NUMS = 3;
+const OCR_WORKER_NUMS = 9;
 
 class OCRQueue extends BaseQueue {
 	/**
