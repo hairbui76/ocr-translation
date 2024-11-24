@@ -3,7 +3,7 @@ const os = require("os");
 const BaseQueue = require("./BaseQueue");
 const BaseWorker = require("./BaseWorker");
 const ocr = require("#utils/ocr");
-const { simpleImageHash } = require("#utils/hash");
+const { simpleImageHash, simpleTranslatedTextHash } = require("#utils/hash");
 const pdf = require("#utils/pdf");
 const translator = require("#utils/translator");
 
@@ -56,10 +56,28 @@ class OCRQueue extends BaseQueue {
 	 * @returns {Promise<string>} OCR result
 	 */
 	async getOCRResult(imgBuffer, job, cached) {
+		const hash = simpleImageHash(imgBuffer);
+		const cacheKey = `ocr:${hash}`;
+
 		try {
+			await job.updateProgress(10);
+
+			if (cached) {
+				const cachedOCRResult = await this.redisClient.get(cacheKey);
+
+				if (cachedOCRResult) {
+					console.log("Found OCR result in cache for job:", job.id);
+					await job.updateProgress(40);
+					return cachedOCRResult;
+				}
+			}
+
 			await job.updateProgress(20);
 			const ocrResult = await ocr.image2text(imgBuffer);
 
+			await this.redisClient.set(cacheKey, ocrResult);
+
+			console.log("OCR result stored in cache for job:", job.id);
 			await job.updateProgress(40);
 
 			return ocrResult;
@@ -76,9 +94,28 @@ class OCRQueue extends BaseQueue {
 	 * @returns
 	 */
 	async getTranslatedText(ocrResult, job, cached) {
+		const hash = simpleTranslatedTextHash(ocrResult);
+		const cacheKey = `translate:${hash}`;
+
 		try {
 			await job.updateProgress(60);
+
+			if (cached) {
+				const cachedTranslatedText = await this.redisClient.get(cacheKey);
+
+				if (cachedTranslatedText) {
+					console.log("Found translated text in cache for job:", job.id);
+					await job.updateProgress(70);
+					return cachedTranslatedText;
+				}
+			}
+
+			// await job.updateProgress(60);
 			const translatedText = await translator.translate(ocrResult);
+
+			await this.redisClient.set(cacheKey, translatedText);
+
+			console.log("Translated text stored in cache for job:", job.id);
 			await job.updateProgress(70);
 
 			return translatedText;
