@@ -226,7 +226,7 @@ const processUploadImages = async (req, res) => {
 			);
 
 			// add completed listener to the 2 queues
-			// ocrQueue.addCompletedListener(job.id, completedListener);
+			ocrQueue.addCompletedListener(job.id, completedListener);
 			translationQueue.addCompletedListener(
 				job.id + "_translation",
 				completedListener
@@ -270,8 +270,8 @@ const processUploadImages = async (req, res) => {
 };
 
 const getJobResult = async (req, res) => {
-	const translationQueue = req.app.get("translationQueue");
-	const job = await translationQueue.getJob(req.params.jobId + "_translation");
+	const ocrQueue = req.app.get("ocrQueue");
+	const job = await ocrQueue.getJob(req.params.jobId);
 	if (!job) {
 		console.log(`Job ${req.params.jobId} not found`);
 		throw new NotFoundError("Job not found");

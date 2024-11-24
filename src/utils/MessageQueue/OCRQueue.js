@@ -4,6 +4,8 @@ const BaseQueue = require("./BaseQueue");
 const BaseWorker = require("./BaseWorker");
 const ocr = require("#utils/ocr");
 const { simpleImageHash } = require("#utils/hash");
+const pdf = require("#utils/pdf");
+const translator = require("#utils/translator");
 
 // console.log("Total CPUs: ", os.cpus().length);
 const OCR_WORKER_NUMS = 1;
@@ -36,18 +38,8 @@ class OCRQueue extends BaseQueue {
 				// Process OCR job
 				try {
 					const ocrResult = await this.ocrPipeline(job);
-
-					// Add translation job
-					await this.translationQueue.add(
-						job.data.fileName,
-						{
-							ocrResult,
-							fileName: job.data.fileName,
-							cached: job.data.cached,
-						},
-						{ jobId: job.id + "_translation" }
-					);
 					console.log("OCR job", job.id, "done at", new Date());
+					return ocrResult;
 				} catch (error) {
 					console.error(`Job ${job.id} failed:`, error);
 					throw error;
@@ -78,9 +70,28 @@ class OCRQueue extends BaseQueue {
 	}
 
 	/**
+	 * Translate text based on OCR result
+	 * @param {string} ocrResult OCR result
+	 * @param {import("bull").Job} job Job to process
+	 * @returns
+	 */
+	async getTranslatedText(ocrResult, job, cached) {
+		try {
+			await job.updateProgress(60);
+			const translatedText = await translator.translate(ocrResult);
+			await job.updateProgress(70);
+
+			return translatedText;
+		} catch (error) {
+			console.error(`Error accessing cache:`, error);
+			return translator.translate(ocrResult);
+		}
+	}
+
+	/**
 	 * Pipe and Filter pattern implementation for processing image
 	 * @param {import("bull").Job} job Job to process
-	 * @returns {Promise<string>} OCR result
+	 * @returns {Promise<Buffer>} OCR result
 	 */
 	async ocrPipeline(job) {
 		const { imgBuffer, cached } = job.data;
@@ -94,8 +105,20 @@ class OCRQueue extends BaseQueue {
 			);
 
 			await job.updateProgress(50);
+			// Translation Filter
+			const translatedText = await this.getTranslatedText(
+				ocrResult,
+				job,
+				cached
+			);
 
-			return ocrResult;
+			await job.updateProgress(80);
+			const pdfBuffer = await pdf.createPDF(translatedText);
+
+			console.log("PDF generated for job:", job.id);
+			await job.updateProgress(100);
+
+			return pdfBuffer;
 		} catch (error) {
 			console.error(`Error in ocrPipeline for job ${job.id}:`, error);
 			throw error;
