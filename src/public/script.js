@@ -101,7 +101,7 @@ uploadForm.addEventListener("submit", async (e) => {
 	e.preventDefault();
 	$("#tabButtons").innerHTML = "";
 	$("#pdf-results-container").innerHTML = "";
-	totalProcessingTime = 0;
+	totalTime.textContent = "";
 
 	const formData = new FormData();
 	const files = folderSupported.checked ? folderInput.files : imageInput.files;
@@ -110,12 +110,14 @@ uploadForm.addEventListener("submit", async (e) => {
 
 	// Create progress tracking object
 	const progressBars = new Map();
+	const doneJobTrackers = new Map();
 
 	for (const file of files) {
 		formData.append(files.length > 1 ? "images" : "image", file);
 		const progressElement = createProgressBar(file.name);
 		progressContainer.appendChild(progressElement);
 		progressBars.set(file.name, progressElement);
+		doneJobTrackers.set(file.name, false);
 	}
 
 	formData.append("cached", cached.checked);
@@ -127,6 +129,7 @@ uploadForm.addEventListener("submit", async (e) => {
 		const uploadUrl =
 			files.length > 1 ? `${BASE_URL}/upload/array` : `${BASE_URL}/upload`;
 
+		const totalStartTime = Date.now();
 		const response = await fetch(uploadUrl, {
 			method: "POST",
 			body: formData,
@@ -157,6 +160,7 @@ uploadForm.addEventListener("submit", async (e) => {
 									data.error || "An unknown error occurred"
 								);
 							}
+							doneJobTrackers.delete(data.fileName);
 						} else {
 							if (data.state === "active") {
 								if (data.progress === 0) jobTracker.set(data.jobId, Date.now());
@@ -172,17 +176,23 @@ uploadForm.addEventListener("submit", async (e) => {
 									const startTime = jobTracker.get(data.jobId);
 									const endTime = Date.now();
 									const elapsedTime = endTime - startTime;
-									progressTime.textContent = `${(elapsedTime / 1000).toFixed(4)}s`;
-									totalProcessingTime += elapsedTime;
-									totalTime.textContent = `Total processing time: ${(totalProcessingTime / 1000).toFixed(4)}s`;
+									progressTime.textContent = `${elapsedTime > 1000 ? (elapsedTime / 1000).toFixed(4) + "s" : elapsedTime + "ms"}`;
 									updateProgress(progressElement, 100);
 									await fetchResult(data.jobId, data.fileName);
+									doneJobTrackers.delete(data.fileName);
 								}
 							}
 						}
 					}
 				}
+
+				if (doneJobTrackers.size === 0) {
+					break;
+				}
 			}
+			const totalEndTime = Date.now();
+			totalProcessingTime = totalEndTime - totalStartTime;
+			totalTime.textContent = `Total processing time: ${(totalProcessingTime / 1000).toFixed(4)}s`;
 		} else {
 			console.error("Response body is not readable");
 		}
