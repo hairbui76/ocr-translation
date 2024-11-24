@@ -5,7 +5,7 @@ const _CircuitBreaker = require("opossum");
 class CircuitBreaker extends _CircuitBreaker {
 	constructor(fn) {
 		const options = {
-			timeout: 3000,
+			timeout: 10000,
 			errorThresholdPercentage: 50,
 			resetTimeout: 30000,
 		};

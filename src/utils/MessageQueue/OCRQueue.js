@@ -1,11 +1,12 @@
 // src/utils/MessageQueue/OCRQueue.js
-
+const os = require("os");
 const BaseQueue = require("./BaseQueue");
 const BaseWorker = require("./BaseWorker");
 const ocr = require("#utils/ocr");
 const { simpleImageHash } = require("#utils/hash");
 
-const OCR_WORKER_NUMS = 3;
+// console.log("Total CPUs: ", os.cpus().length);
+const OCR_WORKER_NUMS = 1;
 
 class OCRQueue extends BaseQueue {
 	/**
@@ -63,28 +64,10 @@ class OCRQueue extends BaseQueue {
 	 * @returns {Promise<string>} OCR result
 	 */
 	async getOCRResult(imgBuffer, job, cached) {
-		const hash = simpleImageHash(imgBuffer);
-		const cacheKey = `ocr:${hash}`;
-
 		try {
-			await job.updateProgress(10);
-
-			if (cached) {
-				const cachedOCRResult = await this.redisClient.get(cacheKey);
-
-				if (cachedOCRResult) {
-					console.log("Found OCR result in cache for job:", job.id);
-					await job.updateProgress(40);
-					return cachedOCRResult;
-				}
-			}
-
 			await job.updateProgress(20);
 			const ocrResult = await ocr.image2text(imgBuffer);
 
-			await this.redisClient.set(cacheKey, ocrResult);
-
-			console.log("OCR result stored in cache for job:", job.id);
 			await job.updateProgress(40);
 
 			return ocrResult;

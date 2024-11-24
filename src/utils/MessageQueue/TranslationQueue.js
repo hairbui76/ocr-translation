@@ -1,12 +1,12 @@
 // src/utils/MessageQueue/TranslationQueue.js
-
+const os = require("os");
 const BaseQueue = require("./BaseQueue");
 const BaseWorker = require("./BaseWorker");
 const translator = require("#utils/translator");
 const pdf = require("#utils/pdf");
 const { simpleTranslatedTextHash } = require("#utils/hash");
 
-const TRANSLATION_WORKER_NUMS = 2;
+const TRANSLATION_WORKER_NUMS = 1;
 
 class TranslationQueue extends BaseQueue {
 	/**
@@ -51,28 +51,9 @@ class TranslationQueue extends BaseQueue {
 	 * @returns
 	 */
 	async getTranslatedText(ocrResult, job, cached) {
-		const hash = simpleTranslatedTextHash(ocrResult);
-		const cacheKey = `translate:${hash}`;
-
 		try {
 			await job.updateProgress(60);
-
-			if (cached) {
-				const cachedTranslatedText = await this.redisClient.get(cacheKey);
-
-				if (cachedTranslatedText) {
-					console.log("Found translated text in cache for job:", job.id);
-					await job.updateProgress(70);
-					return cachedTranslatedText;
-				}
-			}
-
-			// await job.updateProgress(60);
 			const translatedText = await translator.translate(ocrResult);
-
-			await this.redisClient.set(cacheKey, translatedText);
-
-			console.log("Translated text stored in cache for job:", job.id);
 			await job.updateProgress(70);
 
 			return translatedText;
