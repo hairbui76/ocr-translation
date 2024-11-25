@@ -8,13 +8,23 @@ const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
 const pdfCtrl = require("#controllers/pdf");
+const {
+	validateMultipleFiles,
+	validateSingleFile,
+} = require("#middlewares/fileValidation");
 
 router.post(
 	"/upload/array",
 	upload.array("images"),
+	validateMultipleFiles,
 	pdfCtrl.processUploadImages
 );
-router.post("/upload", upload.single("image"), pdfCtrl.processUploadImage);
+router.post(
+	"/upload",
+	upload.single("image"),
+	validateSingleFile,
+	pdfCtrl.processUploadImage
+);
 
 // Express route for retrieving result
 router.get("/result/:jobId", pdfCtrl.getJobResult);
